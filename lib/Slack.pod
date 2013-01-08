@@ -1,0 +1,59 @@
+=head1 NAME
+
+Slack - A slacked web application framework based on Plack
+
+=head1 VERSION
+
+This document describes Slack version 0.00
+
+=head1 SYNOPSIS
+
+  $ cat app.psgi
+  package MyApp::Root;
+  use Slack::Controller;
+  action hello => sub {
+      res->body('Hello, world!');
+  };
+  package MyApp;
+  use parent qw(Slack);
+  MyApp->new->to_app;
+
+  $ plackup
+  HTTP::Server::PSGI: Accepting connections at http://0:5000/
+
+=head1 DESCRIPTION
+
+=head1 SUBROUTINES/METHODS
+
+=head1 DIAGNOSTICS
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+Slack requires no configuration files or environment variables.
+
+=head1 DEPENDENCIES
+
+None.
+
+=head1 INCOMPATIBILITIES
+
+None reported.
+
+=head1 BUGS AND LIMITATIONS
+
+No bugs have been reported.
+
+Please report any bugs or feature requests to
+C<bug-slack@rt.cpan.org>, or through the web interface at
+L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=slack>.
+I will be notified, and then you'll automatically be notified of progress on
+your bug as I make changes.
+
+=head1 AUTHOR
+
+Hironori Yoshida <yoshida@cpan.org>
+
+=head1 LICENSE AND COPYRIGHT
+
+This module is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself. See L<perlartistic|perlartistic>.

@@ -16,4 +16,16 @@ Module::Build->new(
         'Plack'    => 0,
         'Template' => 0,
     },
+    add_to_cleanup => [
+        qw(
+          *.ERR
+          *.bak
+          *.tdy
+          MANIFEST
+          MANIFEST.SKIP
+          META.json
+          META.yml
+          Slack-*.tar.gz
+          )
+    ],
 )->create_build_script;

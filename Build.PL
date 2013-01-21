@@ -10,13 +10,9 @@ use encoding::warnings;
 use Module::Build;
 
 Module::Build->new(
-    dist_name          => 'Slack',
-    dist_version       => 0.01,
-    configure_requires => {
-        'Module::Build' => 0,
-        'perl'          => '5.12.0',
-    },
-    requires => {
+    dist_name    => 'Slack',
+    dist_version => '0.01',
+    requires     => {
         'Plack'    => 0,
         'Template' => 0,
     },

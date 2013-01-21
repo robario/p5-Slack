@@ -16,9 +16,12 @@ FILTER_ONLY code => sub {
 };
 
 sub import {
+    ### assert: $_[0] eq __PACKAGE__
+    ### assert: caller eq 'Slack'
+    my $package = caller 1;
     no strict qw(refs);
-    push @{ caller . '::ISA' }, __PACKAGE__;
-    *{ caller . '::action' } = \&action;
+    push @{ $package . '::ISA' }, __PACKAGE__;
+    *{ $package . '::action' } = \&action;
 }
 
 sub action {

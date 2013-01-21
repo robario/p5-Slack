@@ -13,7 +13,22 @@ use Plack::Util::Accessor qw(config);
 use Slack::Log;
 use Slack::Request;
 use Slack::Response;
-use Slack::Controller ();    # never import
+use Slack::Controller ();    # avoid import
+
+sub import {
+    my $class = shift;
+    foreach (@_) {
+        given ($_) {
+            when ('Controller') {
+                Slack::Controller->import;
+            }
+            when ('Application') {
+                no strict qw(refs);
+                push @{ caller . '::ISA' }, __PACKAGE__;
+            }
+        }
+    }
+}
 
 sub new {
     my $class = shift;

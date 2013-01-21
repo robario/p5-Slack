@@ -59,7 +59,7 @@ sub prepare_app {
     ### Setup Controller...
     my $appname = ref $self;
     foreach my $package ( Module::Pluggable::Object->new( search_path => [ $self->config->{appname} ] )->plugins ) {
-        eval { load $package; };
+        load $package;
         $package->new( app => $self );
     }
 

@@ -16,7 +16,7 @@ use Slack::Response;
 
 sub new {
     my $class = shift;
-    my $self = $class->SUPER::new( config => { %{ $class->config }, ref $_[0] eq 'HASH' ? %{ $_[0] } : @_ } );
+    my $self = $class->SUPER::new( config => ref $_[0] eq 'HASH' ? $_[0] : {@_} );
 
     ### Setup Configuration...
     $self->config->{appname}     //= $class;

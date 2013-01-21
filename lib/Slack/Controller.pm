@@ -11,8 +11,8 @@ use Plack::Util::Accessor qw(app);
 my %ACTION;
 
 FILTER_ONLY code => sub {
-    s/(^|\s)req\b/$1\$_[0]/g;
-    s/(^|\s)res\b/$1\$_[1]/g;
+    s/\breq\b(?!\s*=)/\$_[0]/g;
+    s/\bres\b(?!\s*=)/\$_[1]/g;
 };
 
 sub import {

@@ -13,6 +13,7 @@ use Plack::Util::Accessor qw(config);
 use Slack::Log;
 use Slack::Request;
 use Slack::Response;
+use Slack::Controller ();    # never import
 
 sub new {
     my $class = shift;

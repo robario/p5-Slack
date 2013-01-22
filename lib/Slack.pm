@@ -59,6 +59,7 @@ sub new {
 
 sub prefix {
     my ( $self, $prefix ) = @_;
+    ### assert: length $prefix
     my $appname = quotemeta $self->config->{appname};
     $prefix =~ s/\A$appname\:://;
     if ( $prefix !~ s/\ARoot\z// ) {

@@ -15,16 +15,23 @@ use Slack::Request;
 use Slack::Response;
 use Slack::Controller ();    # avoid import
 
+my %ACTION;
+my %CONTROLLER;
+
 sub import {
-    my $class = shift;
+    no strict qw(refs);
+    my $package = caller;
     foreach (@_) {
         given ($_) {
+            when ('Application') {
+                push @{ $package . '::ISA' }, 'Slack';
+            }
             when ('Controller') {
                 Slack::Controller->import;
-            }
-            when ('Application') {
-                no strict qw(refs);
-                push @{ caller . '::ISA' }, __PACKAGE__;
+                push @{ $package . '::ISA' }, 'Slack::Controller';
+                *{ $package . '::action' } = sub {
+                    push @{ $ACTION{$package} }, \@_;
+                };
             }
         }
     }
@@ -76,7 +83,29 @@ sub prepare_app {
     my $appname = ref $self;
     foreach my $package ( Module::Pluggable::Object->new( search_path => [ $self->config->{appname} ] )->plugins ) {
         load $package;
-        $package->new( app => $self );
+        $CONTROLLER{$package} = $package->new( config => $self->config->{$package} // {} );
+        my $prefix = $self->prefix($package);
+        $ACTION{$package} = [
+            map {
+                my ( $pattern, $code ) = @{$_} == 2 ? ( $_->[0], $_->[1] ) : ( $_->[1], $_->[2] );
+                given ( ref $pattern ) {
+                    when ('') {
+                        $pattern = quotemeta $pattern;
+                        $pattern = qr/$pattern\z/;
+                    }
+                    when ('Regexp') { }
+                    default         { ... }
+                }
+
+                given ( ref $code ) {
+                    when ('CODE') { $code = { GET => $code }; }
+                    when ('HASH') { }
+                    default       { ... }
+                }
+
+                [ $_->[0], qr{\A/$prefix$pattern}, $code ];
+            } @{ $ACTION{$package} }
+        ];
     }
 
     ### Setup View...
@@ -84,8 +113,8 @@ sub prepare_app {
         require Template;
         my $tt = Template->new( $self->config->{Template} );
         sub {
-            my ( $req, $res ) = @_;
-            my $template = $self->prefix( ref $req->action->{controller} ) . $req->action->{name} . '.tt';
+            my ( $context, $req, $res ) = @_;
+            my $template = $self->prefix( ref $context->{controller} ) . $context->{action}->[0] . '.tt';
             $tt->process( $template, $res->stash, \my $output ) or croak $tt->error();
             return $output;
         };
@@ -98,21 +127,38 @@ sub call {
     my ( $self, $env ) = @_;
 
     my $req = Slack::Request->new($env);
-    Slack::Controller->find_action($req);
-    if ( !$req->action ) {
+
+    my $context = { app => $self };
+
+    my $maxlen = 0;
+    foreach my $class ( keys %ACTION ) {
+        foreach my $action ( @{ $ACTION{$class} } ) {
+            if ( $req->path =~ $action->[1] ) {
+                ### match: $req->path . ' matched ' . $action->[1]
+                if ( $maxlen <= length ${^MATCH} ) {
+                    $maxlen = length ${^MATCH};
+                    $req->args( { %+, map { $_ => substr $req->path, $-[$_], $+[$_] - $-[$_] } 1 .. $#- } );
+                    $context->{action}     = $action;
+                    $context->{controller} = $CONTROLLER{$class};
+                }
+            }
+        }
+    }
+
+    if ( !$context->{action} ) {
         return [ 404, [], ['404 Not Found'] ];
     }
 
     my $res = Slack::Response->new(200);    # TODO: default header
     $res->stash( { config => $self->config, req => $req, res => $res } );
-    $req->action->{code}->{ $req->method }->( $req, $res );
+    $context->{action}->[2]->{ $req->method }->( $context, $req, $res );
 
     if ( !$res->content_type ) {
         $res->content_type('text/html; charset=UTF-8');
     }
 
     if ( !$res->body ) {
-        my $output = $self->{view}->( $req, $res );
+        my $output = $self->{view}->( $context, $req, $res );
         $res->body( encode_utf8($output) );
     }
 

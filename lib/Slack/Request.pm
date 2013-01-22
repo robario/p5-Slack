@@ -4,7 +4,7 @@ use warnings;
 use encoding::warnings;
 use parent qw(Plack::Request);
 
-use Plack::Util::Accessor qw(action args);
+use Plack::Util::Accessor qw(args);
 
 my $query_parameters = Plack::Request->can('query_parameters');
 my $body_parameters  = Plack::Request->can('body_parameters');

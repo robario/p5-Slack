@@ -4,7 +4,7 @@ Slack - A slacked web application framework based on Plack
 
 =head1 VERSION
 
-This document describes Slack version 0.01
+This document describes Slack version 0.02
 
 =head1 SYNOPSIS
 

@@ -1,4 +1,4 @@
-package Slack::Log v0.1.0;
+package Slack::Log v0.1.1;
 use v5.12.0;
 use warnings;
 use encoding::warnings;

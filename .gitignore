@@ -1,4 +1,5 @@
 *.ERR
+*.LOG
 *.bak
 *.tdy
 *.tmp

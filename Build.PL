@@ -9,7 +9,24 @@ use encoding::warnings;
 
 use Module::Build;
 
-Module::Build->new(
+Module::Build->subclass(
+    code => q{
+        sub ACTION_manifest_skip {
+            my $self = shift;
+            $self->SUPER::ACTION_manifest_skip(@_);
+            open my $fh, '>>', 'MANIFEST.SKIP' or croak $!;
+            print {$fh} <<'EOT';
+
+# Addition
+\.ERR$
+\.LOG$
+\.tdy$
+^Slack\.ppd
+EOT
+            return;
+        }
+    },
+  )->new(
     dist_name    => 'Slack',
     dist_version => '0.01',
     requires     => {
@@ -19,8 +36,10 @@ Module::Build->new(
     add_to_cleanup => [
         qw(
           *.ERR
+          *.LOG
           *.bak
           *.tdy
+          *.tmp
           MANIFEST
           MANIFEST.SKIP
           META.json
@@ -28,4 +47,4 @@ Module::Build->new(
           Slack-*.tar.gz
           )
     ],
-)->create_build_script;
+  )->create_build_script;

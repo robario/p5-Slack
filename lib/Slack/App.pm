@@ -96,7 +96,8 @@ sub call {
                 ### match: $req->path . ' matched ' . $action->{pattern}
                 if ( $maxlen <= length ${^MATCH} ) {
                     $maxlen = length ${^MATCH};
-                    $req->args( { %+, map { $_ => substr $req->path, $-[$_], $+[$_] - $-[$_] } 1 .. $#- } );
+                    $req->args( {%+} );
+                    $req->argv( [ map { substr $req->path, $-[$_], $+[$_] - $-[$_] } 1 .. $#- ] );
                     $context = {
                         app        => $self,
                         action     => $action,

@@ -7,17 +7,19 @@ use Module::Load qw(load);
 use Slack::Log;
 
 sub import {
-    my $class = shift;
+    my ( undef, @args ) = @_;
 
     my $caller = caller;
-    foreach my $component ( map { 'Slack::' . $_ } @_ ) {
+    foreach my $component ( map { 'Slack::' . $_ } @args ) {
         load $component;
         $component->import;
         {
-            no strict qw(refs);
+            no strict qw(refs);    ## no critic (TestingAndDebugging::ProhibitNoStrict)
             push @{ $caller . '::ISA' }, $component;
         }
     }
+
+    return;
 }
 
 1;

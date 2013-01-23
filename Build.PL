@@ -30,8 +30,9 @@ EOT
     dist_name    => 'Slack',
     dist_version => '0.01',
     requires     => {
-        'Plack'    => 0,
-        'Template' => 0,
+        'HTTP::Status' => 0,
+        'Plack'        => 0,
+        'Template'     => 0,
     },
     add_to_cleanup => [
         qw(

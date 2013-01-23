@@ -8,17 +8,14 @@ use Encode qw(encode_utf8);
 use Text::Balanced qw(extract_quotelike);
 
 sub import {
-    eval { require Smart::Comments; };
-    if ($@) {
-        return;
-    }
+    eval { require Smart::Comments; } or return;
 
-    no warnings qw(redefine);
+    no warnings qw(redefine);    ## no critic (TestingAndDebugging::ProhibitNoWarnings)
 
-    my $Dumper = Smart::Comments->can('Dumper');
+    my $dumper = Smart::Comments->can('Dumper');
     *Smart::Comments::Dumper = sub {
-        my $dumped = $Dumper->(@_);
-        $dumped =~ s/\\x{([0-9A-Fa-f]+)}/chr hex sprintf '%04s', $1/eg;
+        my $dumped = $dumper->(@_);
+        $dumped =~ s/\\x{([\dA-F]+)}/chr hex sprintf '%04s', $1/egi;
         $dumped =~ s/\\\\/\\/g;
         $dumped =~ s{\b(qr/.*)}{
                 my $x = $1;
@@ -33,14 +30,12 @@ sub import {
 
     my $import = warnings->can('import');
     *warnings::import = sub {
-        my $package = caller;
-        eval qq{
-            package $package;
-            Smart::Comments->import(qw(-ENV));
-        };
+        Smart::Comments->import(qw(-ENV));
         goto &{$import};
     };
     warnings->import;
+
+    return;
 }
 
 1;

@@ -7,6 +7,8 @@ use parent qw(Plack::Component);
 
 use Carp qw(croak);
 use Encode qw(encode_utf8);
+use English qw(-no_match_vars);
+use HTTP::Status qw(:constants status_message);
 use Module::Load qw(load);
 use Module::Pluggable::Object;
 use Plack::Util::Accessor qw(config controller);
@@ -14,9 +16,9 @@ use Slack::Request;
 use Slack::Response;
 
 sub new {
-    my $class = shift;
-    my $self  = $class->SUPER::new(
-        config => ref $_[0] eq 'HASH' ? $_[0] : {@_},
+    my ( $class, @args ) = @_;
+    my $self = $class->SUPER::new(
+        config => ref $args[0] eq 'HASH' ? $args[0] : {@args},
         controller => [],
     );
 
@@ -43,14 +45,15 @@ sub new {
 }
 
 sub prefix {
-    my $self = shift;
-    my $prefix = ref $_[0] || $_[0];
+    my ( $self, $prefix ) = @_;
+    $prefix = ref $prefix || $prefix;
     ### assert: length $prefix
     my $appname = quotemeta ref $self;
     $prefix =~ s/\A$appname\:://;
-    if ( $prefix !~ s/\ARoot\z// ) {
+    $prefix =~ s/\ARoot//;
+    if ($prefix) {
         $prefix =~ s{::}{/}g;
-        $prefix = lc $prefix . '/';
+        $prefix = lc $prefix . q{/};
     }
     return $prefix;
 }
@@ -96,8 +99,14 @@ sub call {
                 ### match: $req->path . ' matched ' . $action->{pattern}
                 if ( $maxlen <= length ${^MATCH} ) {
                     $maxlen = length ${^MATCH};
-                    $req->args( {%+} );
-                    $req->argv( [ map { substr $req->path, $-[$_], $+[$_] - $-[$_] } 1 .. $#- ] );
+                    $req->args( {%LAST_PAREN_MATCH} );
+                    $req->argv(
+                        [
+                            map { substr $req->path, $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] - $LAST_MATCH_START[$_] }
+                              1 .. $#LAST_MATCH_START
+                        ]
+                    );
+
                     $context = {
                         app        => $self,
                         action     => $action,
@@ -109,10 +118,10 @@ sub call {
     }
 
     if ( !$context ) {
-        return [ 404, [], ['404 Not Found'] ];
+        return [ HTTP_NOT_FOUND, [], [ status_message(HTTP_NOT_FOUND) ] ];
     }
 
-    my $res = Slack::Response->new(200);    # TODO: default header
+    my $res = Slack::Response->new(HTTP_OK);    # TODO: default header
     $res->stash( { config => $self->config, req => $req, res => $res } );
     $context->{action}->{code}->{ $req->method }->( $context, $req, $res );
 

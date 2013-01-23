@@ -14,11 +14,13 @@ undef *Plack::Request::body_parameters;
 undef *Plack::Request::param;
 
 sub param {
-    given ( $_[0]->method ) {
+    my ($self) = @_;
+    given ( $self->method ) {
         when ( [qw(HEAD GET)] )        { goto &{$query_parameters} }
         when ( [qw(POST PUT DELETE)] ) { goto &{$body_parameters} }
         default { ... }
     }
+    return;
 }
 
 1;

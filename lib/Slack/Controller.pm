@@ -19,18 +19,20 @@ my @action;
 sub import {
     ### assert: caller eq 'Slack'
     my $package = caller 1;
-    no strict qw(refs);
+    no strict qw(refs);    ## no critic (TestingAndDebugging::ProhibitNoStrict)
     *{ $package . '::action' } = sub {
         ### assert: @_ == 2 or @_ == 3
         push @action, \@_;
+        return;
     };
+    return;
 }
 
 sub new {
     my ( $class, %option ) = @_;
     {
         # restore action accessor
-        no strict qw(refs);
+        no strict qw(refs);    ## no critic (TestingAndDebugging::ProhibitNoStrict)
         undef *{ $class . '::action' };
     }
     my $app = delete $option{app};

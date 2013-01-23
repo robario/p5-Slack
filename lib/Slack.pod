@@ -4,22 +4,30 @@ Slack - A slacked web application framework based on Plack
 
 =head1 VERSION
 
-This document describes Slack version 0.01
+This document describes Slack version 0.02
 
 =head1 SYNOPSIS
 
   $ cat app.psgi
+  package MyApp;
+  use Slack qw(App);
+  __PACKAGE__->new->to_app;
+
+  $ cat MyApp/Root.pm
   package MyApp::Root;
-  use Slack::Controller;
+  use Slack qw(Controller);
+
   action hello => sub {
       res->body('Hello, world!');
   };
-  package MyApp;
-  use parent qw(Slack);
-  MyApp->new->to_app;
+
+  1;
 
   $ plackup
   HTTP::Server::PSGI: Accepting connections at http://0:5000/
+
+  $ curl http://127.0.0.1:5000/hello
+  Hello, world!
 
 =head1 DESCRIPTION
 
@@ -43,15 +51,11 @@ None reported.
 
 No bugs have been reported.
 
-Please report any bugs or feature requests to
-C<bug-slack@rt.cpan.org>, or through the web interface at
-L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=slack>.
-I will be notified, and then you'll automatically be notified of progress on
-your bug as I make changes.
+Please report any bugs or feature requests to C<webmaster@robario.com>.
 
 =head1 AUTHOR
 
-Hironori Yoshida <yoshida@cpan.org>
+robario <webmaster@robario.com>
 
 =head1 LICENSE AND COPYRIGHT
 

@@ -122,7 +122,7 @@ sub call {
     }
 
     my $res = Slack::Response->new(HTTP_OK);    # TODO: default header
-    $res->stash( { config => $self->config, req => $req, res => $res } );
+    $res->stash( { config => $self->config, req => $req, res => $res } );    # for template
     $context->{action}->{code}->{ $req->method }->( $context, $req, $res );
 
     if ( !$res->content_type ) {

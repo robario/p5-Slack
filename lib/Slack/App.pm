@@ -129,7 +129,7 @@ sub call {
         $res->content_type('text/html; charset=UTF-8');
     }
 
-    if ( !$res->body ) {
+    if ( not defined $res->body ) {
         my $output = $self->{view}->( $context, $req, $res );
         $res->body( encode_utf8($output) );
     }

@@ -26,9 +26,9 @@ sub new {
     $self->config->{environment} //= $ENV{PLACK_ENV};
     $self->config->{appdir} //= do {
         require Cwd;
-        my $pm = $INC{ $class =~ s{::}{/}gr . '.pm' };
-        if ($pm) {
-            Cwd::abs_path( $pm . '/../../' );
+        my $pm = $class =~ s{::}{/}gr . '.pm';
+        if ( $INC{$pm} ) {
+            Cwd::abs_path( ( $INC{$pm} =~ s/\Q$pm\E\z//r ) . q{..} );
         }
         else {    # for oneliner
             Cwd::getcwd;

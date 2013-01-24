@@ -2,7 +2,7 @@
 eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
   if 0;
 
-package main v0.1.1;
+package main v0.1.2;
 use v5.12.0;
 use warnings;
 use encoding::warnings;
@@ -28,7 +28,7 @@ EOT
     },
   )->new(
     dist_name    => 'Slack',
-    dist_version => '0.02',
+    dist_version => '0.03',
     requires     => {
         'HTTP::Status' => 0,
         'Plack'        => 0,

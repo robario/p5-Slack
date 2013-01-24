@@ -1,4 +1,4 @@
-package Slack::App v0.1.0;
+package Slack::App v0.1.1;
 use v5.12.0;
 use warnings;
 use encoding::warnings;
@@ -122,14 +122,14 @@ sub call {
     }
 
     my $res = Slack::Response->new(HTTP_OK);    # TODO: default header
-    $res->stash( { config => $self->config, req => $req, res => $res } );
+    $res->stash( { config => $self->config, req => $req, res => $res } );    # for template
     $context->{action}->{code}->{ $req->method }->( $context, $req, $res );
 
     if ( !$res->content_type ) {
         $res->content_type('text/html; charset=UTF-8');
     }
 
-    if ( !$res->body ) {
+    if ( not defined $res->body ) {
         my $output = $self->{view}->( $context, $req, $res );
         $res->body( encode_utf8($output) );
     }

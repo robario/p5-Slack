@@ -9,8 +9,21 @@ BEGIN {
 
     no warnings qw(redefine);    ## no critic (TestingAndDebugging::ProhibitNoWarnings)
 
+    # make Time::Piece object readable
+    my $_dump = \&Data::Dumper::_dump;
+
+    sub _dump {
+        my @args = @_;
+        if ( ref $args[1] eq 'Time::Piece' ) {
+            $args[1] = bless \( $args[1]->datetime ), ( ref $args[1] ) . '#stringify';
+        }
+        return $_dump->(@args);
+    }
+
     my $dumper = \&Smart::Comments::Dumper;
     *Smart::Comments::Dumper = sub {
+        local $Data::Dumper::Useperl = 1;
+        local *Data::Dumper::_dump   = \&_dump;    ## no critic (Variables::ProtectPrivateVars)
         my $dumped = $dumper->(@_);
 
         # make unicode characters visible

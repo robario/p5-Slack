@@ -4,26 +4,36 @@ use warnings;
 use encoding::warnings;
 use re qw(/msx);
 
-BEGIN {
+use Encode qw(decode_utf8);
+use Time::Piece;
+
+BEGIN {    ## no critic (Subroutines::RequireArgUnpacking)
+    ## no critic (TestingAndDebugging::ProhibitNoWarnings)
+    ## no critic (Variables::ProtectPrivateVars)
+    no warnings qw(redefine);
+    my $_strftime = \&Time::Piece::_strftime;
+    *Time::Piece::_strftime = sub ($$$$$$$;$$$) {
+        return decode_utf8( $_strftime->(@_) );
+    };
+
+    # Smart::Comments debug enhancer
     eval { require Smart::Comments; } or return;
 
-    no warnings qw(redefine);    ## no critic (TestingAndDebugging::ProhibitNoWarnings)
-
-    # make Time::Piece object readable
     my $_dump = \&Data::Dumper::_dump;
 
     sub _dump {
         my @args = @_;
+
+        # make Time::Piece object readable
         if ( ref $args[1] eq 'Time::Piece' ) {
             $args[1] = bless \( $args[1]->datetime ), ( ref $args[1] ) . '#stringify';
         }
         return $_dump->(@args);
     }
-
     my $dumper = \&Smart::Comments::Dumper;
     *Smart::Comments::Dumper = sub {
         local $Data::Dumper::Useperl = 1;
-        local *Data::Dumper::_dump   = \&_dump;    ## no critic (Variables::ProtectPrivateVars)
+        local *Data::Dumper::_dump   = \&_dump;
         my $dumped = $dumper->(@_);
 
         # make unicode characters visible
@@ -42,7 +52,6 @@ BEGIN {
                 $extracted =~ s{\Aqr/(.+)/\z}{$1};
                 $extracted . $remainder;
             }eg;
-        require Encode;
         return Encode::encode_utf8($dumped);
     };
 
@@ -52,6 +61,7 @@ BEGIN {
         Smart::Comments->import(qw(-ENV));
         goto &{$import};
     };
+    ## use critic
 }
 
 sub import {

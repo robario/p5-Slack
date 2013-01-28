@@ -4,7 +4,7 @@ use warnings;
 use encoding::warnings;
 
 use Module::Load qw(load);
-use Slack::Log;
+use Slack::Util;
 
 sub import {
     my ( undef, @args ) = @_;

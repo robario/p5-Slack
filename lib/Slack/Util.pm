@@ -1,4 +1,4 @@
-package Slack::Log v0.1.1;
+package Slack::Util v0.0.0;
 use v5.12.0;
 use warnings;
 use encoding::warnings;
@@ -46,7 +46,7 @@ BEGIN {
         return Encode::encode_utf8($dumped);
     };
 
-    # Even if warnings is loaded instead of Slack::Log, enable Smart::Comments.
+    # Even if warnings is loaded instead of Slack::Util, enable Smart::Comments.
     my $import = \&warnings::import;
     *warnings::import = sub {
         Smart::Comments->import(qw(-ENV));

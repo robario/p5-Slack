@@ -23,12 +23,12 @@ sub import {
 
 sub new {
     my ( $class, @args ) = @_;
+    ### Initialize...
     my $self = $class->SUPER::new(
         config => ref $args[0] eq 'HASH' ? $args[0] : {@args},
         controller => [],
     );
 
-    ### Setup Configuration...
     $self->config->{environment} //= $ENV{PLACK_ENV};
     $self->config->{appdir} //= do {
         require Cwd;
@@ -42,38 +42,24 @@ sub new {
     };
     $self->config->{rootdir} //= $self->config->{appdir} . '/root';
 
-    $self->config->{Template}->{INCLUDE_PATH} //= $self->config->{rootdir};
-    $self->config->{Template}->{ENCODING} //= 'utf8';
-
-    #### config: $self->config
-
     return $self;
-}
-
-sub prefix {
-    my ( $self, $prefix ) = @_;
-    $prefix = ref $prefix || $prefix;
-    ### assert: length $prefix
-    my $appname = quotemeta ref $self;
-    $prefix =~ s/\A$appname\:://;
-    $prefix =~ s/\ARoot//;
-    if ($prefix) {
-        $prefix =~ s{::}{/}g;
-        $prefix = lc $prefix . q{/};
-    }
-    return $prefix;
 }
 
 sub prepare_app {
     my $self = shift;
+
+    ### Setup Configuration...
+    $self->config->{Template}->{INCLUDE_PATH} //= $self->config->{rootdir};
+    $self->config->{Template}->{ENCODING} //= 'utf8';
+    ### config: $self->config
 
     ### Setup Controller...
     foreach my $package ( Module::Pluggable::Object->new( search_path => [ ref $self ] )->plugins ) {
         load $package;
         push $self->controller,
           $package->new(
-            app    => $self,
-            config => $self->config->{$package} // {}
+            _appname => ref $self,
+            config   => $self->config->{$package} // {}
           );
     }
 
@@ -83,7 +69,7 @@ sub prepare_app {
         my $tt = Template->new( $self->config->{Template} );
         sub {
             my ( $context, $req, $res ) = @_;
-            my $template = $self->prefix( $context->{controller} ) . $context->{action}->{name} . '.tt';
+            my $template = $context->{controller}->prefix =~ s{\A/}{}r . $context->{action}->{name} . '.tt';
             $tt->process( $template, $res->stash, \my $output ) or croak $tt->error();
             return $output;
         };

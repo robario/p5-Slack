@@ -30,15 +30,17 @@ sub import {
 
 sub new {
     my ( $class, %option ) = @_;
+    ### assert: $class ne __PACKAGE__
     {
         # restore action accessor
         no strict qw(refs);    ## no critic (TestingAndDebugging::ProhibitNoStrict)
         undef *{ $class . '::action' };
     }
-    my $app = delete $option{app};
     $option{action} = [];
     my $self = Plack::Component::new( $class, %option );
-    my $prefix = $app->prefix($class);
+
+    my $prefix = $self->prefix;
+    ### assert: $prefix =~ qr{\A/}
     while ( my $action = shift @action ) {
         my $name    = $action->[0];
         my $pattern = @{$action} == 2 ? $name : $action->[1];
@@ -52,7 +54,7 @@ sub new {
             when ('Regexp') { }
             default         { ... }
         }
-        $pattern = qr{\A/$prefix$pattern};
+        $pattern = qr{\A$prefix$pattern};
 
         given ( ref $code ) {
             when ('CODE') { $code = { GET => $code }; }
@@ -64,6 +66,13 @@ sub new {
     }
 
     return $self;
+}
+
+sub prefix {
+    my $self    = shift;
+    my $prefix  = ref $self;
+    my $appname = quotemeta $self->{_appname};
+    return ( join q{/}, map { lc } split /::/, $prefix =~ s/\A$appname//r ) . q{/};
 }
 
 1;

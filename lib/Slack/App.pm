@@ -14,6 +14,12 @@ use Module::Pluggable::Object;
 use Plack::Util::Accessor qw(config controller);
 use Slack::Request;
 use Slack::Response;
+use Slack::Util;
+
+sub import {
+    Slack::Util->import;
+    return;
+}
 
 sub new {
     my ( $class, @args ) = @_;

@@ -43,14 +43,12 @@ BEGIN {    ## no critic (Subroutines::RequireArgUnpacking)
         $dumped =~ s/\\\\/\\/g;
 
         # make regular expression readable (qr/\// => qr{/})
-        $dumped =~ s{\b(qr/.*)}{
-                my $x = $1;
-                require Text::Balanced;
-                my ($extracted, $remainder) = Text::Balanced::extract_quotelike($x);
-                $extracted =~ s{\\/}{/}g;
-                $extracted =~ s{\Aqr/\Q(?^\E([^:]+):(.+)[)]/\z}{qr{$2}$1};
-                $extracted =~ s{\Aqr/(.+)/\z}{$1};
-                $extracted . $remainder;
+        $dumped =~ s{\b(qr/.+?(?<!\\)/)}{
+                my $qr = $1;
+                $qr =~ s{\\/}{/}g;
+                $qr =~ s{\Aqr/\Q(?^\E([^:]+):(.+)[)]/\z}{qr{$2}$1};
+                $qr =~ s{\Aqr/(.+)/\z}{$1};
+                $qr;
             }eg;
         return Encode::encode_utf8($dumped);
     };

@@ -4,7 +4,7 @@ use warnings;
 use encoding::warnings;
 use parent qw(Plack::Response);
 
-use Plack::Util::Accessor qw(param stash);
+use Plack::Util::Accessor qw(stash);
 
 undef *Plack::Response::code;
 undef *Plack::Response::content;

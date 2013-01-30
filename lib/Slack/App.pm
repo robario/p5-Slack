@@ -60,15 +60,18 @@ sub prepare_app {
     }
 
     ### Setup View...
-    $self->{view} //= do {
-        require Template;
-        my $tt = Template->new( $self->config->{Template} );
-        sub {
-            my ( $context, $req, $res ) = @_;
-            my $template = $context->{controller}->prefix =~ s{\A/}{}r . $context->{action}->{name} . '.tt';
-            $tt->process( $template, $res->stash, \my $output ) or croak $tt->error();
+    $self->{view} //= {
+        renderer => do {
+            my $renderer = 'Template';
+            load $renderer;
+            $renderer->new( $self->config->{$renderer} );
+        },
+        code => sub {
+            my ( $self, $controller, $action, $req, $res ) = @_;
+            my $template = $controller->prefix =~ s{\A/}{}r . $action->{name} . '.tt';
+            $self->process( $template, $res->stash, \my $output ) or croak $self->error();
             return $output;
-        };
+        },
     };
 
     return;
@@ -118,7 +121,7 @@ sub call {
     }
 
     if ( not defined $res->body ) {
-        my $output = $self->{view}->( $context, $req, $res );
+        my $output = $self->{view}->{code}->( $self->{view}->{renderer}, $context->{controller}, $context->{action}, $req, $res );
         $res->body( encode_utf8($output) );
     }
 

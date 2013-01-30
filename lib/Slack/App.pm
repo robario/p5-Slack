@@ -81,48 +81,62 @@ sub call {
     my ( $self, $env ) = @_;
 
     my $req = Slack::Request->new($env);
-    my $context;
 
-    my $maxlen = 0;
+    my %matched = ( maxlen => 0 );
     foreach my $controller ( @{ $self->controller } ) {
         foreach my $action ( @{ $controller->action } ) {
+            #### try matching: $req->path . ' =~ ' . $action->{pattern}
             if ( $req->path =~ $action->{pattern} ) {
-                ### match: $req->path . ' matched ' . $action->{pattern}
-                if ( $maxlen <= length ${^MATCH} ) {
-                    $maxlen = length ${^MATCH};
-                    $req->args( {%LAST_PAREN_MATCH} );
-                    $req->argv(
-                        [
-                            map { substr $req->path, $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] - $LAST_MATCH_START[$_] }
-                              1 .. $#LAST_MATCH_START
-                        ]
-                    );
-
-                    $context = {
-                        app        => $self,
-                        action     => $action,
-                        controller => $controller,
-                    };
+                ### matched: ${^MATCH}
+                if ( length ${^MATCH} < $matched{maxlen} ) {
+                    ### go through...
+                    next;
                 }
+                %matched = (
+                    maxlen     => length ${^MATCH},
+                    action     => $action,
+                    controller => $controller,
+                    args       => {%LAST_PAREN_MATCH},
+                    argv       => [
+                        map { substr $req->path, $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] - $LAST_MATCH_START[$_] }
+                          1 .. $#LAST_MATCH_START
+                    ],
+                );
             }
         }
     }
 
-    if ( !$context ) {
-        return [ HTTP_NOT_FOUND, [], [ status_message(HTTP_NOT_FOUND) ] ];
+    my $res = Slack::Response->new;
+    ### assert: not defined $res->status
+    ### assert: not defined $res->body
+    ### assert: not length $res->content_type
+
+    if ( $matched{maxlen} ) {
+        my $action     = $matched{action};
+        my $controller = $matched{controller};
+        $req->args( $matched{args} );
+        $req->argv( $matched{argv} );
+
+        $action->{code}->{ $req->method }->( $controller, $action, $req, $res );
+
+        if ( not $res->status ) {
+            $res->status(HTTP_OK);
+        }
+
+        if ( not defined $res->body ) {
+            if ( not length $res->content_type ) {
+                $res->content_type('text/html; charset=UTF-8');
+            }
+
+            my $output = $self->{view}->{code}->( $self->{view}->{renderer}, $controller, $action, $req, $res );
+            $res->body( encode_utf8( $output // q{} ) );
+        }
+
     }
-
-    my $res = Slack::Response->new(HTTP_OK);    # TODO: default header
-    $res->stash( { c => $context, req => $req, res => $res } );    # for template
-    $context->{action}->{code}->{ $req->method }->( $context, $req, $res );
-
-    if ( !$res->content_type ) {
-        $res->content_type('text/html; charset=UTF-8');
-    }
-
-    if ( not defined $res->body ) {
-        my $output = $self->{view}->{code}->( $self->{view}->{renderer}, $context->{controller}, $context->{action}, $req, $res );
-        $res->body( encode_utf8($output) );
+    else {
+        $res->status(HTTP_NOT_FOUND);
+        $res->content_type('text/plain; charset=UTF-8');
+        $res->body( status_message(HTTP_NOT_FOUND) );
     }
 
     return $res->finalize;

@@ -9,9 +9,14 @@ use Plack::Component;
 use Plack::Util::Accessor qw(app action);
 
 FILTER_ONLY code => sub {
-    s/\bcontext\b(?!\s*=)/\$_[0]/g;
-    s/\breq\b(?!\s*=)/\$_[1]/g;
-    s/\bres\b(?!\s*=)/\$_[2]/g;
+    my %replacement = (
+        ## no critic (ValuesAndExpressions::RequireInterpolationOfMetachars)
+        req => '$_[2]',
+        res => '$_[3]',
+    );
+    while ( my ( $keyword, $replacement ) = each %replacement ) {
+        s/(^|\s)\K$keyword\b(?=-)/$replacement/g;
+    }
 };
 
 my @action;

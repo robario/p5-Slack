@@ -56,11 +56,7 @@ sub prepare_app {
     ### Setup Controller...
     foreach my $package ( Module::Pluggable::Object->new( search_path => [ ref $self ] )->plugins ) {
         load $package;
-        push $self->controller,
-          $package->new(
-            _appname => ref $self,
-            config   => $self->config->{$package} // {}
-          );
+        push $self->controller, $package->new( app => $self );
     }
 
     ### Setup View...
@@ -114,7 +110,7 @@ sub call {
     }
 
     my $res = Slack::Response->new(HTTP_OK);    # TODO: default header
-    $res->stash( { config => $self->config, req => $req, res => $res } );    # for template
+    $res->stash( { c => $context, req => $req, res => $res } );    # for template
     $context->{action}->{code}->{ $req->method }->( $context, $req, $res );
 
     if ( !$res->content_type ) {

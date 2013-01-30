@@ -6,7 +6,7 @@ use re qw(/msx);
 
 use Filter::Simple;
 use Plack::Component;
-use Plack::Util::Accessor qw(config action);
+use Plack::Util::Accessor qw(app action);
 
 FILTER_ONLY code => sub {
     s/\bcontext\b(?!\s*=)/\$_[0]/g;
@@ -71,7 +71,7 @@ sub new {
 sub prefix {
     my $self    = shift;
     my $prefix  = ref $self;
-    my $appname = quotemeta $self->{_appname};
+    my $appname = quotemeta ref $self->app;
     return ( join q{/}, map { lc } split /::/, $prefix =~ s/\A$appname//r ) . q{/};
 }
 

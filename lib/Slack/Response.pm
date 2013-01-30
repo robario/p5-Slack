@@ -9,4 +9,11 @@ use Plack::Util::Accessor qw(stash);
 undef *Plack::Response::code;
 undef *Plack::Response::content;
 
+sub new {
+    my $class = shift;
+    my $self  = $class->SUPER::new(@_);
+    $self->stash( {} );
+    return $self;
+}
+
 1;

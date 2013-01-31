@@ -34,7 +34,8 @@ sub new {
         require Cwd;
         my $pm = $class =~ s{::}{/}gr . '.pm';
         if ( $INC{$pm} ) {
-            Cwd::abs_path( ( $INC{$pm} =~ s/\Q$pm\E\z//r ) . q{..} );
+            my $dir = Cwd::abs_path( ( $INC{$pm} =~ s/\Q$pm\E\z//r ) . q{..} );
+            $dir =~ s{/blib}{}r;
         }
         else {    # for oneliner
             Cwd::getcwd;

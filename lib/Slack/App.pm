@@ -118,7 +118,9 @@ sub call {
         $req->args( $matched{args} );
         $req->argv( $matched{argv} );
 
-        $action->{code}->{ $req->method }->( $controller, $action, $req, $res );
+        if ( exists $action->{code}->{ $req->method } ) {
+            $action->{code}->{ $req->method }->( $controller, $action, $req, $res );
+        }
 
         if ( not $res->status ) {
             $res->status(HTTP_OK);

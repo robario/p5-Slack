@@ -108,6 +108,7 @@ sub call {
     }
 
     my $res = Slack::Response->new;
+    $res->stash->{c} = { app => $self };    # for template
     ### assert: not defined $res->status
     ### assert: not defined $res->body
     ### assert: not length $res->content_type

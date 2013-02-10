@@ -1,4 +1,4 @@
-package Slack::App v0.1.1;
+package Slack::App v0.2.0;
 use v5.12.0;
 use warnings;
 use encoding::warnings;
@@ -14,21 +14,28 @@ use Module::Pluggable::Object;
 use Plack::Util::Accessor qw(config controller);
 use Slack::Request;
 use Slack::Response;
+use Slack::Util;
+
+sub import {
+    Slack::Util->import;
+    return;
+}
 
 sub new {
     my ( $class, @args ) = @_;
+    ### Initialize...
     my $self = $class->SUPER::new(
         config => ref $args[0] eq 'HASH' ? $args[0] : {@args},
         controller => [],
     );
 
-    ### Setup Configuration...
     $self->config->{environment} //= $ENV{PLACK_ENV};
     $self->config->{appdir} //= do {
         require Cwd;
-        my $pm = $INC{ $class =~ s{::}{/}gr . '.pm' };
-        if ($pm) {
-            Cwd::abs_path( $pm . '/../../' );
+        my $pm = $class =~ s{::}{/}gr . '.pm';
+        if ( $INC{$pm} ) {
+            my $dir = Cwd::abs_path( ( $INC{$pm} =~ s/\Q$pm\E\z//r ) . q{..} );
+            $dir =~ s{/blib}{}r;
         }
         else {    # for oneliner
             Cwd::getcwd;
@@ -36,51 +43,36 @@ sub new {
     };
     $self->config->{rootdir} //= $self->config->{appdir} . '/root';
 
-    $self->config->{Template}->{INCLUDE_PATH} //= $self->config->{rootdir};
-    $self->config->{Template}->{ENCODING} //= 'utf8';
-
-    #### config: $self->config
-
     return $self;
-}
-
-sub prefix {
-    my ( $self, $prefix ) = @_;
-    $prefix = ref $prefix || $prefix;
-    ### assert: length $prefix
-    my $appname = quotemeta ref $self;
-    $prefix =~ s/\A$appname\:://;
-    $prefix =~ s/\ARoot//;
-    if ($prefix) {
-        $prefix =~ s{::}{/}g;
-        $prefix = lc $prefix . q{/};
-    }
-    return $prefix;
 }
 
 sub prepare_app {
     my $self = shift;
 
+    ### Setup Configuration...
+    $self->config->{Template}->{INCLUDE_PATH} //= $self->config->{rootdir};
+    $self->config->{Template}->{ENCODING} //= 'utf8';
+    ### config: $self->config
+
     ### Setup Controller...
     foreach my $package ( Module::Pluggable::Object->new( search_path => [ ref $self ] )->plugins ) {
         load $package;
-        push $self->controller,
-          $package->new(
-            app    => $self,
-            config => $self->config->{$package} // {}
-          );
+        push $self->controller, $package->new( app => $self );
     }
 
     ### Setup View...
-    $self->{view} //= do {
-        require Template;
-        my $tt = Template->new( $self->config->{Template} );
-        sub {
-            my ( $context, $req, $res ) = @_;
-            my $template = $self->prefix( $context->{controller} ) . $context->{action}->{name} . '.tt';
-            $tt->process( $template, $res->stash, \my $output ) or croak $tt->error();
+    $self->{view} //= {
+        renderer => do {
+            my $renderer = 'Template';
+            load $renderer;
+            $renderer->new( $self->config->{$renderer} );
+        },
+        code => sub {
+            my ( $self, $controller, $action, $req, $res ) = @_;
+            my $template = $controller->prefix =~ s{\A/}{}r . $action->{name} . '.tt';
+            $self->process( $template, $res->stash, \my $output ) or croak $self->error();
             return $output;
-        };
+        },
     };
 
     return;
@@ -90,48 +82,65 @@ sub call {
     my ( $self, $env ) = @_;
 
     my $req = Slack::Request->new($env);
-    my $context;
 
-    my $maxlen = 0;
+    my %matched = ( maxlen => 0 );
     foreach my $controller ( @{ $self->controller } ) {
         foreach my $action ( @{ $controller->action } ) {
+            #### try matching: $req->path . ' =~ ' . $action->{pattern}
             if ( $req->path =~ $action->{pattern} ) {
-                ### match: $req->path . ' matched ' . $action->{pattern}
-                if ( $maxlen <= length ${^MATCH} ) {
-                    $maxlen = length ${^MATCH};
-                    $req->args( {%LAST_PAREN_MATCH} );
-                    $req->argv(
-                        [
-                            map { substr $req->path, $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] - $LAST_MATCH_START[$_] }
-                              1 .. $#LAST_MATCH_START
-                        ]
-                    );
-
-                    $context = {
-                        app        => $self,
-                        action     => $action,
-                        controller => $controller,
-                    };
+                ### matched: ${^MATCH}
+                if ( length ${^MATCH} < $matched{maxlen} ) {
+                    ### go through...
+                    next;
                 }
+                %matched = (
+                    maxlen     => length ${^MATCH},
+                    action     => $action,
+                    controller => $controller,
+                    args       => {%LAST_PAREN_MATCH},
+                    argv       => [
+                        map { substr $req->path, $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] - $LAST_MATCH_START[$_] }
+                          1 .. $#LAST_MATCH_START
+                    ],
+                );
             }
         }
     }
 
-    if ( !$context ) {
-        return [ HTTP_NOT_FOUND, [], [ status_message(HTTP_NOT_FOUND) ] ];
+    my $res = Slack::Response->new;
+    $res->stash->{c} = { app => $self, req => $req };    # for template
+    ### assert: not defined $res->status
+    ### assert: not defined $res->body
+    ### assert: not length $res->content_type
+
+    if ( $matched{maxlen} ) {
+        my $action     = $matched{action};
+        my $controller = $matched{controller};
+        $req->args( $matched{args} );
+        $req->argv( $matched{argv} );
+
+        if ( exists $action->{code}->{ $req->method } ) {
+            $action->{code}->{ $req->method }->( $controller, $action, $req, $res );
+        }
+
+        if ( not $res->status ) {
+            $res->status(HTTP_OK);
+        }
+
+        if ( not defined $res->body ) {
+            if ( not length $res->content_type ) {
+                $res->content_type('text/html; charset=UTF-8');
+            }
+
+            my $output = $self->{view}->{code}->( $self->{view}->{renderer}, $controller, $action, $req, $res );
+            $res->body( encode_utf8( $output // q{} ) );
+        }
+
     }
-
-    my $res = Slack::Response->new(HTTP_OK);    # TODO: default header
-    $res->stash( { config => $self->config, req => $req, res => $res } );    # for template
-    $context->{action}->{code}->{ $req->method }->( $context, $req, $res );
-
-    if ( !$res->content_type ) {
-        $res->content_type('text/html; charset=UTF-8');
-    }
-
-    if ( not defined $res->body ) {
-        my $output = $self->{view}->( $context, $req, $res );
-        $res->body( encode_utf8($output) );
+    else {
+        $res->status(HTTP_NOT_FOUND);
+        $res->content_type('text/plain; charset=UTF-8');
+        $res->body( status_message(HTTP_NOT_FOUND) );
     }
 
     return $res->finalize;

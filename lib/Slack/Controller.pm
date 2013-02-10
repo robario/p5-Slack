@@ -1,4 +1,4 @@
-package Slack::Controller v0.2.0;
+package Slack::Controller v0.3.0;
 use v5.12.0;
 use warnings;
 use encoding::warnings;
@@ -6,12 +6,17 @@ use re qw(/msx);
 
 use Filter::Simple;
 use Plack::Component;
-use Plack::Util::Accessor qw(config action);
+use Plack::Util::Accessor qw(app action);
 
 FILTER_ONLY code => sub {
-    s/\bcontext\b(?!\s*=)/\$_[0]/g;
-    s/\breq\b(?!\s*=)/\$_[1]/g;
-    s/\bres\b(?!\s*=)/\$_[2]/g;
+    my %replacement = (
+        ## no critic (ValuesAndExpressions::RequireInterpolationOfMetachars)
+        req => '$_[2]',
+        res => '$_[3]',
+    );
+    while ( my ( $keyword, $replacement ) = each %replacement ) {
+        s/(^|\s)\K$keyword\b(?=-)/$replacement/g;
+    }
 };
 
 my @action;
@@ -30,15 +35,17 @@ sub import {
 
 sub new {
     my ( $class, %option ) = @_;
+    ### assert: $class ne __PACKAGE__
     {
         # restore action accessor
         no strict qw(refs);    ## no critic (TestingAndDebugging::ProhibitNoStrict)
         undef *{ $class . '::action' };
     }
-    my $app = delete $option{app};
     $option{action} = [];
     my $self = Plack::Component::new( $class, %option );
-    my $prefix = $app->prefix($class);
+
+    my $prefix = $self->prefix;
+    ### assert: $prefix =~ qr{\A/}
     while ( my $action = shift @action ) {
         my $name    = $action->[0];
         my $pattern = @{$action} == 2 ? $name : $action->[1];
@@ -52,7 +59,7 @@ sub new {
             when ('Regexp') { }
             default         { ... }
         }
-        $pattern = qr{\A/$prefix$pattern};
+        $pattern = qr{\A$prefix$pattern};
 
         given ( ref $code ) {
             when ('CODE') { $code = { GET => $code }; }
@@ -64,6 +71,13 @@ sub new {
     }
 
     return $self;
+}
+
+sub prefix {
+    my $self    = shift;
+    my $prefix  = ref $self;
+    my $appname = quotemeta ref $self->app;
+    return ( join q{/}, map { lc } split /::/, $prefix =~ s/\A$appname//r ) . q{/};
 }
 
 1;

@@ -4,29 +4,31 @@ Slack - A slacked web application framework based on Plack
 
 =head1 VERSION
 
-This document describes Slack version 0.02
+This document describes Slack version 0.03
 
 =head1 SYNOPSIS
 
   $ cat app.psgi
-  package MyApp;
+  use MyApp::Web;
+  MyApp::Web->new;
+
+  $ cat MyApp/Web.pm
+  package MyApp::Web;
   use Slack qw(App);
-  __PACKAGE__->new->to_app;
+  1;
 
-  $ cat MyApp/Root.pm
-  package MyApp::Root;
+  $ cat MyApp/Web/Hello.pm
+  package MyApp::Web::Hello;
   use Slack qw(Controller);
-
-  action hello => sub {
+  action world => sub {
       res->body('Hello, world!');
   };
-
   1;
 
   $ plackup
   HTTP::Server::PSGI: Accepting connections at http://0:5000/
 
-  $ curl http://127.0.0.1:5000/hello
+  $ curl http://127.0.0.1:5000/hello/world
   Hello, world!
 
 =head1 DESCRIPTION

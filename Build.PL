@@ -2,7 +2,7 @@
 eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
   if 0;
 
-package main v0.1.2;
+package main v0.1.3;
 use v5.12.0;
 use warnings;
 use encoding::warnings;

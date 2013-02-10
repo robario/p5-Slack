@@ -1,4 +1,4 @@
-package Slack v0.2.0;
+package Slack v0.4.0;
 use v5.12.0;
 use warnings;
 use encoding::warnings;
@@ -32,7 +32,7 @@ Slack - A slacked web application framework based on Plack
 
 =head1 VERSION
 
-This document describes Slack version 0.03
+This document describes Slack version v0.4.0
 
 =head1 SYNOPSIS
 

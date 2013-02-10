@@ -1,4 +1,4 @@
-package Slack::Response v0.1.0;
+package Slack::Response v0.2.0;
 use v5.12.0;
 use warnings;
 use encoding::warnings;

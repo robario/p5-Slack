@@ -27,9 +27,8 @@ EOT
         }
     },
   )->new(
-    dist_name    => 'Slack',
-    dist_version => '0.03',
-    requires     => {
+    module_name => 'Slack',
+    requires    => {
         'HTTP::Status' => 0,
         'Plack'        => 0,
         'Template'     => 0,

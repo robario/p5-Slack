@@ -122,6 +122,9 @@ sub call {
         if ( exists $action->{code}->{ $req->method } ) {
             $action->{code}->{ $req->method }->( $controller, $action, $req, $res );
         }
+        elsif ( $req->method eq 'HEAD' and exists $action->{code}->{GET} ) {
+            $action->{code}->{GET}->( $controller, $action, $req, $res );
+        }
 
         if ( not $res->status ) {
             $res->status(HTTP_OK);
@@ -136,6 +139,9 @@ sub call {
             $res->body( encode_utf8( $output // q{} ) );
         }
 
+        if ( $req->method eq 'HEAD' ) {
+            $res->body(undef);
+        }
     }
     else {
         $res->status(HTTP_NOT_FOUND);

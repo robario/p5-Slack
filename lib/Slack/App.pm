@@ -132,6 +132,11 @@ sub call {
     if ( not $code and $req->method eq 'HEAD' ) {
         $code = $action->{code}->{GET};
     }
+    if ( not $code ) {
+        $res->status(HTTP_NOT_IMPLEMENTED);
+        $res->header( Allow => join ', ', keys $action->{code} );
+        return $res->finalize;
+    }
 
     $code->( $controller, $action, $req, $res );
 

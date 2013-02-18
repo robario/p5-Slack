@@ -69,6 +69,9 @@ sub prepare_app {
         },
         code => sub {
             my ( $self, $controller, $action, $req, $res ) = @_;
+            if ( not length $res->content_type ) {
+                $res->content_type('text/html; charset=UTF-8');
+            }
             my $template = $controller->prefix =~ s{\A/}{}r . $action->{name} . '.tt';
             $self->process( $template, $res->stash, \my $output ) or croak $self->error();
             return $output;
@@ -126,17 +129,13 @@ sub call {
             $action->{code}->{GET}->( $controller, $action, $req, $res );
         }
 
-        if ( not $res->status ) {
-            $res->status(HTTP_OK);
-        }
-
         if ( not defined $res->body ) {
-            if ( not length $res->content_type ) {
-                $res->content_type('text/html; charset=UTF-8');
-            }
-
             my $output = $self->{view}->{code}->( $self->{view}->{renderer}, $controller, $action, $req, $res );
             $res->body( encode_utf8( $output // q{} ) );
+        }
+
+        if ( not $res->status ) {
+            $res->status(HTTP_OK);
         }
 
         if ( $req->method eq 'HEAD' ) {

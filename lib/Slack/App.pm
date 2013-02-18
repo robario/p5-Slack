@@ -116,36 +116,35 @@ sub call {
     ### assert: not defined $res->body
     ### assert: not length $res->content_type
 
-    if ( $matched{maxlen} ) {
-        my $action     = $matched{action};
-        my $controller = $matched{controller};
-        $req->args( $matched{args} );
-        $req->argv( $matched{argv} );
-
-        if ( exists $action->{code}->{ $req->method } ) {
-            $action->{code}->{ $req->method }->( $controller, $action, $req, $res );
-        }
-        elsif ( $req->method eq 'HEAD' and exists $action->{code}->{GET} ) {
-            $action->{code}->{GET}->( $controller, $action, $req, $res );
-        }
-
-        if ( not defined $res->body ) {
-            my $output = $self->{view}->{code}->( $self->{view}->{renderer}, $controller, $action, $req, $res );
-            $res->body( encode_utf8( $output // q{} ) );
-        }
-
-        if ( not $res->status ) {
-            $res->status(HTTP_OK);
-        }
-
-        if ( $req->method eq 'HEAD' ) {
-            $res->body(undef);
-        }
-    }
-    else {
+    if ( not $matched{maxlen} ) {
         $res->status(HTTP_NOT_FOUND);
         $res->content_type('text/plain; charset=UTF-8');
         $res->body( status_message(HTTP_NOT_FOUND) );
+        return $res->finalize;
+    }
+
+    my $action     = $matched{action};
+    my $controller = $matched{controller};
+    $req->args( $matched{args} );
+    $req->argv( $matched{argv} );
+
+    my $code = $action->{code}->{ $req->method };
+    if ( not $code and $req->method eq 'HEAD' ) {
+        $code = $action->{code}->{GET};
+    }
+
+    $code->( $controller, $action, $req, $res );
+
+    if ( not defined $res->body ) {
+        my $output = $self->{view}->{code}->( $self->{view}->{renderer}, $controller, $action, $req, $res );
+        $res->body( encode_utf8( $output // q{} ) );
+    }
+    if ( $req->method eq 'HEAD' ) {
+        $res->body(undef);
+    }
+
+    if ( not $res->status ) {
+        $res->status(HTTP_OK);
     }
 
     return $res->finalize;

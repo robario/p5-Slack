@@ -50,13 +50,13 @@ sub new {
 
         given ( ref $pattern ) {
             when (q{}) {
-                $pattern = quotemeta $pattern;
-                $pattern = qr/$pattern\z/;
+                $pattern = qr{\A$prefix\Q$pattern\E\z};
             }
-            when ('Regexp') { }
-            default         { ... }
+            when ('Regexp') {
+                $pattern = qr{\A$prefix$pattern};
+            }
+            default { ... }
         }
-        $pattern = qr{\A$prefix$pattern};
 
         given ( ref $code ) {
             when ('CODE') { $code = { GET => $code }; }

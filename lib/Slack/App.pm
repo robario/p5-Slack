@@ -61,6 +61,7 @@ sub prepare_app {
         }
         push $self->controller, $package->new( app => $self );
     }
+    ### action: { map { my $p = ref $_; map { $p . '#' . $_->{name} => $_->{pattern} } @{ $_->action } } @{ $self->controller } }
 
     ### Setup View...
     $self->{view} //= {

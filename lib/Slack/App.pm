@@ -56,7 +56,9 @@ sub prepare_app {
 
     ### Setup Controller...
     foreach my $package ( Module::Pluggable::Object->new( search_path => [ ref $self ] )->plugins ) {
-        load $package;
+        if ( not $package->can('new') ) {
+            load $package;
+        }
         push $self->controller, $package->new( app => $self );
     }
 

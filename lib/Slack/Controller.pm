@@ -50,10 +50,10 @@ sub new {
 
         given ( ref $pattern ) {
             when (q{}) {
-                $pattern = qr{\A$prefix\Q$pattern\E\z};
+                $pattern = qr{\A$prefix\Q$pattern\E\z}p;
             }
             when ('Regexp') {
-                $pattern = qr{\A$prefix$pattern};
+                $pattern = qr{\A$prefix$pattern}p;
             }
             default { ... }
         }

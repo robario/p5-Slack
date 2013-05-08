@@ -19,16 +19,17 @@ FILTER_ONLY code => sub {
     }
 };
 
-my @action;
-
 sub import {
     ### assert: caller eq 'Slack'
     my $package = caller 1;
+    my @action;
     no strict qw(refs);    ## no critic (TestingAndDebugging::ProhibitNoStrict)
     *{ $package . '::action' } = sub {
-        ### assert: @_ == 2 or @_ == 3
-        push @action, \@_;
-        return;
+        if (@_) {
+            ### assert: @_ == 2 or @_ == 3
+            push @action, \@_;
+        }
+        return @action;
     };
     return;
 }
@@ -36,17 +37,13 @@ sub import {
 sub new {
     my ( $class, %option ) = @_;
     ### assert: $class ne __PACKAGE__
-    {
-        # restore action accessor
-        no strict qw(refs);    ## no critic (TestingAndDebugging::ProhibitNoStrict)
-        undef *{ $class . '::action' };
-    }
+    my @action = $class->can('action')->();
     $option{action} = [];
     my $self = Plack::Component::new( $class, %option );
 
     my $prefix = $self->prefix;
     ### assert: $prefix =~ qr{\A/}
-    while ( my $action = shift @action ) {
+    foreach my $action (@action) {
         my $name    = $action->[0];
         my $pattern = @{$action} == 2 ? $name : $action->[1];
         my $code    = @{$action} == 2 ? $action->[1] : $action->[2];

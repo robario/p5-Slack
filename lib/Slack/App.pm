@@ -58,7 +58,7 @@ sub prepare_app {
         if ( not $package->can('new') ) {
             load $package;
         }
-        push $self->controller, $package->new( app => $self );
+        push $self->controller, $package->new( appname => ref $self );
     }
     ### action: { map { my $p = ref $_; map { $p . '#' . $_->{name} => $_->{pattern} } @{ $_->action } } @{ $self->controller } }
 

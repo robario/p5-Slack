@@ -29,7 +29,6 @@ sub new {
         controller => [],
     );
 
-    $self->config->{environment} //= $ENV{PLACK_ENV};
     $self->config->{appdir} //= do {
         require Cwd;
         my $pm = $class =~ s{::}{/}gr . '.pm';

@@ -6,7 +6,6 @@ use re qw(/msx);
 
 use Filter::Simple;
 use Plack::Component;
-use Plack::Util::Accessor qw(action);
 
 FILTER_ONLY code => sub {
     my %replacement = (
@@ -22,28 +21,38 @@ FILTER_ONLY code => sub {
 sub import {
     ### assert: caller eq 'Slack'
     my $package = caller 1;
-    my @action;
-    no strict qw(refs);    ## no critic (TestingAndDebugging::ProhibitNoStrict)
-    *{ $package . '::action' } = sub {
-        if (@_) {
+    my $action  = sub {
+        state @action;
+        if ( $_[0]->isa(__PACKAGE__) ) {    # call as method
+            shift;
+            if (@_) {
+                @action = @_;
+            }
+        }
+        else {                              # call as subroutine
             ### assert: @_ == 2 or @_ == 3
             push @action, \@_;
         }
         return @action;
     };
+    {
+        ## no critic (TestingAndDebugging::ProhibitNoStrict)
+        no strict qw(refs);
+        *{ $package . '::action' } = $action;
+    }
     return;
 }
 
 sub new {
     my ( $class, %option ) = @_;
     ### assert: $class ne __PACKAGE__
-    my @action = $class->can('action')->();
-    $option{action} = [];
     my $self = Plack::Component::new( $class, %option );
 
+    # reconstruct actions
+    my @action;
     my $prefix = $self->prefix;
     ### assert: $prefix =~ qr{\A/}
-    foreach my $action (@action) {
+    foreach my $action ( $self->action ) {
         my $name    = $action->[0];
         my $pattern = @{$action} == 2 ? $name : $action->[1];
         my $code    = @{$action} == 2 ? $action->[1] : $action->[2];
@@ -64,8 +73,15 @@ sub new {
             default       { ... }
         }
 
-        push $self->action, { name => $name, pattern => $pattern, code => $code };
+        push @action,
+          {
+            controller => $self,
+            name       => $name,
+            pattern    => $pattern,
+            code       => $code,
+          };
     }
+    $self->action(@action);
 
     return $self;
 }

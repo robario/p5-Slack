@@ -54,13 +54,18 @@ sub prepare_app {
     ### config: $self->config
 
     ### Setup Controller...
+    my @action;
     foreach my $package ( Module::Pluggable::Object->new( search_path => [ ref $self ] )->plugins ) {
         if ( not $package->can('new') ) {
             load $package;
         }
-        push $self->action, $package->new( appname => ref $self )->action;
+        push @action, $package->new( appname => ref $self )->action;
     }
-    ### action: { map { (ref $_->{controller}) . '#' . $_->{name} => $_->{pattern} } @{ $self->action } }
+    {
+        use sort qw(stable);
+        push $self->action, reverse sort _by_priority @action;
+    }
+    ### action: map { ( ref $_->{controller} ) . '#' . $_->{name} . ' => ' . $_->{pattern} } @{ $self->action }
 
     ### Setup View...
     $self->{view} //= {
@@ -88,25 +93,20 @@ sub call {
 
     my $req = Slack::Request->new($env);
 
-    my %matched = ( maxlen => 0 );
-    foreach my $action ( @{ $self->action } ) {
-        #### try matching: $req->path . ' =~ ' . $action->{pattern}
-        if ( $req->path =~ $action->{pattern} ) {
-            ### matched: ${^MATCH}
-            if ( length ${^MATCH} < $matched{maxlen} ) {
-                ### go through...
-                next;
-            }
-            %matched = (
-                maxlen => length ${^MATCH},
-                action => $action,
-                args   => {%LAST_PAREN_MATCH},
-                argv   => [
-                    map { substr $req->path, $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] - $LAST_MATCH_START[$_] }
-                      1 .. $#LAST_MATCH_START
-                ],
-            );
+    my $path = $req->path;
+
+    my $action;
+    foreach my $matcher ( @{ $self->action } ) {
+        #### try matching: $path . ' =~ ' . $matcher->{pattern}
+        if ( $path !~ $matcher->{pattern} ) {
+            next;
         }
+        ### matched: ${^MATCH}
+        $action = $matcher;
+        $req->args( {%LAST_PAREN_MATCH} );
+        $req->argv(
+            [ map { substr $path, $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] - $LAST_MATCH_START[$_] } 1 .. $#LAST_MATCH_START ] );
+        last;
     }
 
     my $res = Slack::Response->new;
@@ -115,16 +115,12 @@ sub call {
     ### assert: not defined $res->body
     ### assert: not length $res->content_type
 
-    if ( not $matched{maxlen} ) {
+    if ( not $action ) {
         $res->status(HTTP_NOT_FOUND);
         $res->content_type('text/plain; charset=UTF-8');
         $res->body( status_message(HTTP_NOT_FOUND) );
         return $res->finalize;
     }
-
-    my $action = $matched{action};
-    $req->args( $matched{args} );
-    $req->argv( $matched{argv} );
 
     my $code = $action->{code}->{ $req->method };
     if ( not $code and $req->method eq 'HEAD' ) {
@@ -151,6 +147,10 @@ sub call {
     }
 
     return $res->finalize;
+}
+
+sub _by_priority {
+    return $a->{controller}->prefix =~ tr{/}{/} <=> $b->{controller}->prefix =~ tr{/}{/};
 }
 
 1;

@@ -3,67 +3,106 @@ use v5.12.0;
 use warnings;
 use encoding::warnings;
 use re qw(/msx);
+use version;
 
+use Carp qw(carp);
+use Data::Dumper;
 use Encode qw(decode_utf8);
 use Time::Piece;
 
-BEGIN {    ## no critic (Subroutines::RequireArgUnpacking)
+BEGIN {
+    # enable Smart::Comments for ownself
+    if ( eval { require Smart::Comments; } ) {
+        Smart::Comments->import(qw(-ENV));
+    }
+}
+
+BEGIN {
     ## no critic (TestingAndDebugging::ProhibitNoWarnings)
     ## no critic (Variables::ProtectPrivateVars)
     no warnings qw(redefine);
-    my $_strftime = \&Time::Piece::_strftime;
-    *Time::Piece::_strftime = sub ($$$$$$$;$$$) {
-        return decode_utf8( $_strftime->(@_) );
+
+    my $patch_for = sub {
+        my ( $class, $version ) = @_;
+        if ( version->parse($version) < version->parse( $class->VERSION ) ) {
+            carp sprintf 'Could not apply the patch. Please check %s %s', $class, $class->VERSION;
+        }
     };
 
-    # Smart::Comments debug enhancer
-    eval { require Smart::Comments; } or return;
+    # Time::Piece encoding fix
+    $patch_for->( 'Time::Piece' => '1.20_01' );
+    my $strftime = \&Time::Piece::strftime;
+    *Time::Piece::strftime = sub {
+        return decode_utf8( $strftime->(@_) );
+    };
 
-    my $_dump = \&Data::Dumper::_dump;
+    # Smart::Comments enhancer
+    if ( not $INC{'Smart/Comments.pm'} ) {
+        return;
+    }
+    $patch_for->( 'Smart::Comments' => '1.0.4' );
 
-    sub _dump {
+    # define human-readable dump
+    my $dd_dump = \&Data::Dumper::_dump;
+    my $hr_dump = sub {
         my @args = @_;
 
-        # make Time::Piece object readable
-        if ( ref $args[1] eq 'Time::Piece' ) {
+        # Time::Piece readable
+        if ( eval { $args[1]->isa('Time::Piece') } ) {
             $args[1] = bless \( $args[1]->datetime ), ( ref $args[1] ) . '#stringify';
         }
-        return $_dump->(@args);
-    }
-    my $dumper = \&Smart::Comments::Dumper;
-    *Smart::Comments::Dumper = sub {
-        local $Data::Dumper::Useperl = 1;
-        local *Data::Dumper::_dump   = \&_dump;
-        my $dumped = $dumper->(@_);
 
-        # make unicode characters visible
-        $dumped =~ s/\\x{([\dA-F]+)}/chr hex sprintf '%04s', $1/egi;
+        my $dumped = $dd_dump->(@args);
 
-        # make backslash readable
-        $dumped =~ s/\\\\/\\/g;
+        # Regexp readable
+        if ( $dumped =~ s{\A qr/ (.*) / \z}{$1} ) {
+            $dumped =~ s{[\\](?=/)}{}g;
+            $dumped =~ s{\A
+                         [(]\Q?^\E          # open paren to clear flags
+                           (?<flags>.*?)
+                           :                # delimiter
+                           (?<regexp>.*)
+                         [)]                # close paren
+                         \z
+                        }{qr{$+{regexp}}$+{flags}};
+        }
 
-        # make regular expression readable (qr/\// => qr{/})
-        $dumped =~ s{\b(qr/.+?(?<!\\)/)}{
-                my $qr = $1;
-                $qr =~ s{\\/}{/}g;
-                $qr =~ s{\Aqr/\Q(?^\E([^:]+):(.+)[)]/\z}{qr{$2}$1};
-                $qr =~ s{\Aqr/(.+)/\z}{$1};
-                $qr;
-            }eg;
-        return Encode::encode_utf8($dumped);
+        return $dumped;
     };
 
-    # Even if warnings is loaded instead of Slack::Util, enable Smart::Comments.
-    my $import = \&warnings::import;
-    *warnings::import = sub {
-        Smart::Comments->import(qw(-ENV));
-        goto &{$import};
+    my $hr_dumpperl = sub {
+        my @args   = @_;
+        my $dumped = do {
+            local *Data::Dumper::_dump = $hr_dump;
+            Data::Dumper::Dumpperl(@args);
+        };
+
+        # decode Percent-Encoding
+        $dumped =~ s/ [\\]x{ ([\dA-F]+) } /chr hex sprintf '%04s', $1/egi;
+
+        # backslash readable
+        $dumped =~ s/[\\](?=[\\])//g;
+
+        return $dumped;
     };
-    ## use critic
+
+    # Smart::Comments output encoding fix and readable
+    my $sc_dump = \&Smart::Comments::_Dump;
+    *Smart::Comments::_Dump = sub {
+        binmode STDERR => ':encoding(UTF-8)';
+        local *Data::Dumper::Dump = $hr_dumpperl;
+        $sc_dump->(@_);
+        binmode STDERR => ':pop';
+    };
 }
 
 sub import {
-    warnings->import;
+
+    # enable Smart::Comments for caller
+    if ( eval { require Smart::Comments; } ) {
+        Smart::Comments->import(qw(-ENV));
+    }
+
     return;
 }
 

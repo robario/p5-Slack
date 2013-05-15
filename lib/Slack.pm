@@ -9,6 +9,8 @@ use Slack::Util;
 sub import {
     my ( undef, @args ) = @_;
 
+    Slack::Util->import;    # for apply Smart::Comments to caller
+
     my $caller = caller;
     foreach my $component ( map { 'Slack::' . $_ } @args ) {
         load $component;

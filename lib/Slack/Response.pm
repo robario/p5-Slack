@@ -5,6 +5,7 @@ use encoding::warnings;
 use parent qw(Plack::Response);
 
 use Plack::Util::Accessor qw(stash);
+use Slack::Util;
 
 undef *Plack::Response::code;
 undef *Plack::Response::content;

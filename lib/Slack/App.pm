@@ -16,11 +16,6 @@ use Slack::Request;
 use Slack::Response;
 use Slack::Util;
 
-sub import {
-    Slack::Util->import;
-    return;
-}
-
 sub new {
     my ( $class, @args ) = @_;
     ### Initialize...

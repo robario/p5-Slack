@@ -6,6 +6,7 @@ use re qw(/msx);
 
 use Filter::Simple;
 use Plack::Component;
+use Slack::Util;
 
 FILTER_ONLY code => sub {
     my %replacement = (

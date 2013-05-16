@@ -33,6 +33,9 @@ EOT
         'Plack'        => 0,
         'Template'     => 0,
     },
+    recommends => {
+        'Text::Table::Tiny' => 0,
+    },
     add_to_cleanup => [
         qw(
           *.ERR

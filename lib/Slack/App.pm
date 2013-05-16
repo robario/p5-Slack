@@ -60,7 +60,7 @@ sub prepare_app {
         use sort qw(stable);
         push $self->action, reverse sort _by_priority @action;
     }
-    ### action: map { ( ref $_->{controller} ) . '#' . $_->{name} . ' => ' . $_->{pattern} } @{ $self->action }
+    ### action: rows => [ [qw(Controller Action Pattern)], map { [ ref $_->{controller}, @$_{qw(name pattern)} ] } @{ $self->action } ], header_row => 1
 
     ### Setup View...
     $self->{view} //= {
@@ -96,11 +96,11 @@ sub call {
         if ( $path !~ $matcher->{pattern} ) {
             next;
         }
-        ### matched: ${^MATCH}
         $action = $matcher;
         $req->args( {%LAST_PAREN_MATCH} );
         $req->argv(
             [ map { substr $path, $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] - $LAST_MATCH_START[$_] } 1 .. $#LAST_MATCH_START ] );
+        ### matched: rows => [ [ Controller => ref $action->{controller} ], [ Action => $action->{name} ], [ Pattern => $action->{pattern} ], [ Path => $path ], [ '${^MATCH}' => ${^MATCH} ], map { [ '$' . $_, $req->argv->[ $_ - 1 ] ] } 1 .. @{ $req->argv } ]
         last;
     }
 

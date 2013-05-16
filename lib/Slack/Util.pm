@@ -71,7 +71,17 @@ BEGIN {
     };
 
     my $hr_dumpperl = sub {
-        my @args   = @_;
+        my @args = @_;
+        state $table = eval { require Text::Table::Tiny; \&Text::Table::Tiny::table };
+
+        if ($table) {
+            my @data = @{ $args[1]->[0] };
+            if ( $data[0] and $data[0] eq 'rows' and ref $data[1] eq 'ARRAY' and ref $data[1]->[0] eq 'ARRAY' ) {
+                my $UNSMART_COMMENTS_SEQUENCE = "\n\b\n";
+                return $UNSMART_COMMENTS_SEQUENCE . ( $table->(@data) =~ s/^/### /gr ) . "\n";
+            }
+        }
+
         my $dumped = do {
             local *Data::Dumper::_dump = $hr_dump;
             Data::Dumper::Dumpperl(@args);

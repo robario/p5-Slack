@@ -52,7 +52,7 @@ sub new {
     # reconstruct actions
     my @action;
     my $prefix = $self->prefix;
-    ### assert: $prefix =~ qr{\A/}
+    ### assert: $prefix =~ qr{\A/} and $prefix =~ qr{/\z}
     foreach my $action ( $self->action ) {
         my $name    = $action->[0];
         my $pattern = @{$action} == 2 ? $name : $action->[1];
@@ -88,9 +88,8 @@ sub new {
 }
 
 sub prefix {
-    my $self   = shift;
-    my $prefix = ref $self;
-    return ( join q{/}, map { lc } split /::/, $prefix =~ s/\A\Q$self->{appname}\E//r ) . q{/};
+    my $self = shift;
+    return $self->{prefix};
 }
 
 1;

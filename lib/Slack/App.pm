@@ -54,7 +54,12 @@ sub prepare_app {
         if ( not $package->can('new') ) {
             load $package;
         }
-        push @action, $package->new( appname => ref $self )->action;
+        my $appname = ref $self;
+        my $prefix = $package . q{/};
+        $prefix =~ s/\A\Q$appname\E//;
+        $prefix =~ s{::}{/}g;
+        $prefix = lc $prefix;
+        push @action, $package->new( prefix => $prefix )->action;
     }
     {
         use sort qw(stable);

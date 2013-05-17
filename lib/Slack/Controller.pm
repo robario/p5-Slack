@@ -15,7 +15,7 @@ FILTER_ONLY code => sub {
         res => '$_[3]',
     );
     while ( my ( $keyword, $replacement ) = each %replacement ) {
-        s/(?<![\$@%&*])$keyword\b/$replacement/g;
+        s/(?<![\$@%&*])$keyword\b(?!\s*=>)/$replacement/g;
     }
 };
 

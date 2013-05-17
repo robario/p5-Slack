@@ -5,13 +5,12 @@ use encoding::warnings;
 use re qw(/msx);
 use parent qw(Plack::Component);
 
-use Carp qw(croak);
 use Encode qw(encode_utf8);
 use English qw(-no_match_vars);
 use HTTP::Status qw(:constants status_message);
 use Module::Load qw(load);
 use Module::Pluggable::Object;
-use Plack::Util::Accessor qw(config action);
+use Plack::Util::Accessor qw(config action view);
 use Slack::Request;
 use Slack::Response;
 use Slack::Util;
@@ -22,6 +21,7 @@ sub new {
     my $self = $class->SUPER::new(
         config => ref $args[0] eq 'HASH' ? $args[0] : {@args},
         action => [],
+        view   => [],
     );
 
     $self->config->{appdir} //= do {
@@ -44,46 +44,32 @@ sub prepare_app {
     my $self = shift;
 
     ### Setup Configuration...
-    $self->config->{Template}->{INCLUDE_PATH} //= $self->config->{rootdir};
-    $self->config->{Template}->{ENCODING} //= 'utf8';
     ### config: $self->config
 
     ### Setup Controller...
     my @action;
+    my @view;
     foreach my $package ( Module::Pluggable::Object->new( search_path => [ ref $self ] )->plugins ) {
         if ( not $package->can('new') ) {
             load $package;
         }
+
         my $appname = ref $self;
-        my $prefix = $package . q{/};
+        my $prefix  = $package . q{/};
         $prefix =~ s/\A\Q$appname\E//;
         $prefix =~ s{::}{/}g;
         $prefix = lc $prefix;
-        push @action, $package->new( prefix => $prefix )->action;
+        my $controller = $package->new( prefix => $prefix );
+        push @action, $controller->action;
+        push @view,   $controller->view;
     }
     {
         use sort qw(stable);
         push $self->action, reverse sort _by_priority @action;
+        push $self->view,   reverse sort _by_priority @view;
     }
-    ### action: rows => [ [qw(Controller Action Pattern)], map { [ ref $_->{controller}, @$_{qw(name pattern)} ] } @{ $self->action } ], header_row => 1
-
-    ### Setup View...
-    $self->{view} //= {
-        renderer => do {
-            my $renderer = 'Template';
-            load $renderer;
-            $renderer->new( $self->config->{$renderer} );
-        },
-        code => sub {
-            my ( $self, $action, $req, $res ) = @_;
-            if ( not length $res->content_type ) {
-                $res->content_type('text/html; charset=UTF-8');
-            }
-            my $template = $action->{controller}->prefix =~ s{\A/}{}r . $action->{name} . '.tt';
-            $self->process( $template, $res->stash, \my $output ) or croak $self->error();
-            return $output;
-        },
-    };
+    ### action: rows => [ [qw(Controller Name Pattern)], map { [ ref $_->{controller}, @$_{qw(name pattern)} ] } @{ $self->action } ], header_row => 1
+    ### view: rows => [ [qw(Controller Name Pattern)], map { [ ref $_->{controller}, @$_{qw(name pattern)} ] } @{ $self->view } ], header_row => 1
 
     return;
 }
@@ -95,49 +81,69 @@ sub call {
 
     my $path = $req->path;
 
-    my $action;
-    foreach my $matcher ( @{ $self->action } ) {
-        #### try matching: $path . ' =~ ' . $matcher->{pattern}
+    my $view;
+    foreach my $matcher ( @{ $self->view } ) {
+        #### view try matching: $path . ' =~ ' . $matcher->{pattern}
         if ( $path !~ $matcher->{pattern} ) {
             next;
         }
-        $action = $matcher;
+        ### view matched: rows => [ [ Controller => ref $matcher->{controller} ], [ Name => $matcher->{name} ], [ Pattern => $matcher->{pattern} ], [ Path => $path ], [ '${^MATCH}' => ${^MATCH} ] ]
+        $view = $matcher;
+        last;
+    }
+
+    my $action;
+    foreach my $matcher ( @{ $self->action } ) {
+        #### action try matching: $path . ' =~ ' . $matcher->{pattern}
+        if ( $path !~ $matcher->{pattern} ) {
+            next;
+        }
         $req->args( {%LAST_PAREN_MATCH} );
         $req->argv(
             [ map { substr $path, $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] - $LAST_MATCH_START[$_] } 1 .. $#LAST_MATCH_START ] );
-        ### matched: rows => [ [ Controller => ref $action->{controller} ], [ Action => $action->{name} ], [ Pattern => $action->{pattern} ], [ Path => $path ], [ '${^MATCH}' => ${^MATCH} ], map { [ '$' . $_, $req->argv->[ $_ - 1 ] ] } 1 .. @{ $req->argv } ]
+        ### action matched: rows => [ [ Controller => ref $matcher->{controller} ], [ Name => $matcher->{name} ], [ Pattern => $matcher->{pattern} ], [ Path => $path ], [ '${^MATCH}' => ${^MATCH} ], map { [ '$' . $_, $req->argv->[ $_ - 1 ] ] } 1 .. @{ $req->argv } ]
+        $action = $matcher;
         last;
     }
 
     my $res = Slack::Response->new;
-    $res->stash->{c} = { app => $self, req => $req };    # for template
     ### assert: not defined $res->status
     ### assert: not defined $res->body
     ### assert: not length $res->content_type
 
-    if ( not $action ) {
+    if ($action) {
+        ### Process action...
+        my $code = $action->{code}->{ $req->method };
+        if ( not $code and $req->method eq 'HEAD' ) {
+            $code = $action->{code}->{GET};
+        }
+        if ( not $code ) {
+            $res->status(HTTP_NOT_IMPLEMENTED);
+            $res->header( Allow => join ', ', keys $action->{code} );
+            return $res->finalize;
+        }
+        $code->( $self, $action, $req, $res );
+    }
+    else {
         $res->status(HTTP_NOT_FOUND);
         $res->content_type('text/plain; charset=UTF-8');
         $res->body( status_message(HTTP_NOT_FOUND) );
         return $res->finalize;
     }
 
-    my $code = $action->{code}->{ $req->method };
-    if ( not $code and $req->method eq 'HEAD' ) {
-        $code = $action->{code}->{GET};
-    }
-    if ( not $code ) {
-        $res->status(HTTP_NOT_IMPLEMENTED);
-        $res->header( Allow => join ', ', keys $action->{code} );
-        return $res->finalize;
-    }
-
-    $code->( $action->{controller}, $action, $req, $res );
-
     if ( not defined $res->body ) {
-        my $output = $self->{view}->{code}->( $self->{view}->{renderer}, $action, $req, $res );
-        $res->body( encode_utf8( $output // q{} ) );
+        if ($view) {
+            ### Process view...
+            my $code = $view->{code}->{ $req->method } // $view->{code}->{GET};
+            my $output = $code->( $self, $view, $req, $res );
+            $res->body( encode_utf8( $output // q{} ) );
+        }
+        else {
+            $res->body(q{});
+        }
     }
+
+    ### Fixup response...
     if ( $req->method eq 'HEAD' ) {
         $res->body(undef);
     }

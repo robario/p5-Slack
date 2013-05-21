@@ -50,21 +50,21 @@ sub _create_stacker {
             my $pattern = @{$source} == 1 ? $name : shift $source;
             my $code    = shift $source;
 
-            given ( ref $pattern ) {
-                when (q{}) {
-                    $pattern = qr{\A$prefix\Q$pattern\E\z}p;
-                }
-                when ('Regexp') {
-                    $pattern = qr{\A$prefix$pattern}p;
-                }
-                default { ... }
+            if ( ref $pattern eq q{} ) {
+                $pattern = qr{\A$prefix\Q$pattern\E\z}p;
             }
+            elsif ( ref $pattern eq 'Regexp' ) {
+                $pattern = qr{\A$prefix$pattern}p;
+            }
+            else { ... }
 
-            given ( ref $code ) {
-                when ('CODE') { $code = { GET => $code }; }
-                when ('HASH') { }
-                default       { ... }
+            if ( ref $code eq 'CODE' ) {
+                $code = { GET => $code };
             }
+            elsif ( ref $code eq 'HASH' ) {
+                ### assert: scalar keys $code == scalar grep { $_ =~ qr/\A(?:HEAD|GET|POST|PUT|DELETE)\z/ } keys $code;
+            }
+            else { ... }
 
             push @matcher,
               {

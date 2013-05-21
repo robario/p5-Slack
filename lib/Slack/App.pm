@@ -5,7 +5,6 @@ use encoding::warnings;
 use re qw(/msx);
 use parent qw(Plack::Component);
 
-use Encode qw(encode_utf8);
 use English qw(-no_match_vars);
 use HTTP::Status qw(:constants status_message);
 use Module::Load qw(load);
@@ -145,8 +144,7 @@ sub call {
         if ($view) {
             ### Process view...
             my $code = $view->{code}->{ $req->method } // $view->{code}->{GET};
-            my $output = $code->( $self, $view, $req, $res );
-            $res->body( encode_utf8( $output // q{} ) );
+            $code->( $self, $view, $req, $res );
         }
         else {
             $res->body(q{});

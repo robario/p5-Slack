@@ -98,6 +98,9 @@ sub call {
         }
         ### view matched: rows => [ [ Controller => ref $matcher->{controller} ], [ Name => $matcher->{name} ], [ Pattern => $matcher->{pattern} ], [ Path => $path ], [ '${^MATCH}' => ${^MATCH} ] ]
         $view = $matcher;
+        if ( length $view->{extension} ) {
+            $path =~ s/[.]$view->{extension}\z//;
+        }
         last;
     }
 
@@ -131,7 +134,7 @@ sub call {
             $res->header( Allow => join ', ', keys $action->{code} );
             return $res->finalize;
         }
-        $code->( $self, $action, $req, $res );
+        $code->( $self, $action, $view, $req, $res );
     }
     else {
         $res->status(HTTP_NOT_FOUND);
@@ -144,7 +147,7 @@ sub call {
         if ($view) {
             ### Process view...
             my $code = $view->{code}->{ $req->method } // $view->{code}->{GET};
-            $code->( $self, $view, $req, $res );
+            $code->( $self, $action, $view, $req, $res );
         }
         else {
             $res->body(q{});
@@ -164,7 +167,8 @@ sub call {
 }
 
 sub _by_priority {
-    return $a->{controller}->prefix =~ tr{/}{/} <=> $b->{controller}->prefix =~ tr{/}{/};
+    return $a->{controller}->prefix =~ tr{/}{/} <=> $b->{controller}->prefix =~ tr{/}{/}
+      or length $a->{extension} ? 1 : 0 <=> length $b->{extension} ? 1 : 0;
 }
 
 1;

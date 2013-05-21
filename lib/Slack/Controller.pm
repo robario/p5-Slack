@@ -9,13 +9,13 @@ use Plack::Component;
 use Slack::Util;
 
 FILTER_ONLY code => sub {
-    my %replacement = (
+    state $replacement = {
         ## no critic (ValuesAndExpressions::RequireInterpolationOfMetachars)
-        req => '$_[2]',
-        res => '$_[3]',
-    );
-    while ( my ( $keyword, $replacement ) = each %replacement ) {
-        s/(?<![\$@%&*])$keyword\b(?!\s*=>)/$replacement/g;
+        req => '$_[3]',
+        res => '$_[4]',
+    };
+    while ( my ( $keyword, $expression ) = each $replacement ) {
+        s/(?<![\$@%&*])$keyword\b(?!\s*=>)/$expression/g;
     }
 };
 
@@ -49,9 +49,16 @@ sub _create_stacker {
             my $name    = shift $source;
             my $pattern = @{$source} == 1 ? $name : shift $source;
             my $code    = shift $source;
+            my $extension;
 
             if ( ref $pattern eq q{} ) {
                 $pattern = qr{\A$prefix\Q$pattern\E\z}p;
+            }
+            elsif ( ref $pattern eq 'HASH' ) {    # XXX: view only
+                ### assert: length $pattern->{extension}
+                ### assert: q{.} ne substr $pattern->{extension}, 0, 1
+                $extension = $pattern->{extension};
+                $pattern   = qr{\A$prefix.*[.]$extension\z}p;
             }
             elsif ( ref $pattern eq 'Regexp' ) {
                 $pattern = qr{\A$prefix$pattern}p;
@@ -71,6 +78,7 @@ sub _create_stacker {
                 controller => $self,
                 name       => $name,
                 pattern    => $pattern,
+                extension  => $extension,
                 code       => $code,
               };
         }

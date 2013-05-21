@@ -28,10 +28,20 @@ sub new {
         require Cwd;
         my $pm = $class =~ s{::}{/}gr . '.pm';
         if ( $INC{$pm} ) {
-            my $dir = Cwd::abs_path( ( $INC{$pm} =~ s/\Q$pm\E\z//r ) . q{..} );
-            $dir =~ s{/blib}{}r;
+            my $dir = $INC{$pm};
+            if ( $dir =~ s/\Q$pm\E\z// ) {
+                $dir .= q{..};
+            }
+            else {
+                # non-standard directory structure
+                $dir =~ s{[^/]+\z}{};
+            }
+            $dir = Cwd::abs_path($dir);
+            $dir =~ s{/blib}{};
+            $dir;
         }
-        else {    # for oneliner
+        else {
+            # for one-liner
             Cwd::getcwd;
         }
     };

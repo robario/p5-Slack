@@ -1,5 +1,5 @@
 package Slack::Controller v0.3.0;
-use v5.12.0;
+use v5.14.0;
 use warnings;
 use encoding::warnings;
 use re qw(/msx);

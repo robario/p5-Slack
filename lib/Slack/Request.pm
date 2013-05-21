@@ -1,5 +1,5 @@
 package Slack::Request v0.2.0;
-use v5.12.0;
+use v5.14.0;
 use warnings;
 use encoding::warnings;
 use parent qw(Plack::Request);

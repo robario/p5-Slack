@@ -10,6 +10,7 @@ use HTTP::Status qw(:constants status_message);
 use Module::Load qw(load);
 use Module::Pluggable::Object;
 use Plack::Util::Accessor qw(config action view);
+use Slack::Context;
 use Slack::Request;
 use Slack::Response;
 use Slack::Util;
@@ -77,8 +78,8 @@ sub prepare_app {
         push $self->action, reverse sort _by_priority @action;
         push $self->view,   reverse sort _by_priority @view;
     }
-    ### action: rows => [ [qw(Controller Name Pattern)], map { [ ref $_->{controller}, @$_{qw(name pattern)} ] } @{ $self->action } ], header_row => 1
-    ### view: rows => [ [qw(Controller Name Pattern)], map { [ ref $_->{controller}, @$_{qw(name pattern)} ] } @{ $self->view } ], header_row => 1
+    ### action: rows => [ [qw(Controller Name Pattern)], map { [ ref $_->controller, $_->name, $_->pattern ] } @{ $self->action } ], header_row => 1
+    ### view: rows => [ [qw(Controller Name Pattern)], map { [ ref $_->controller, $_->name, $_->pattern ] } @{ $self->view } ], header_row => 1
 
     return;
 }
@@ -86,89 +87,89 @@ sub prepare_app {
 sub call {
     my ( $self, $env ) = @_;
 
-    my $req = Slack::Request->new($env);
+    my $c = Slack::Context->new(
+        app => $self,
+        req => Slack::Request->new($env),
+        res => Slack::Response->new,
+    );
+    ### assert: not defined $c->res->status
+    ### assert: not defined $c->res->body
+    ### assert: not length $c->res->content_type
 
-    my $path = $req->path;
+    my $path = $c->req->path;
 
-    my $view;
     foreach my $matcher ( @{ $self->view } ) {
-        #### view try matching: $path . ' =~ ' . $matcher->{pattern}
-        if ( $path !~ $matcher->{pattern} ) {
+        #### view try matching: $path . ' =~ ' . $matcher->pattern
+        if ( not $path =~ $matcher->pattern ) {
             next;
         }
-        ### view matched: rows => [ [ Controller => ref $matcher->{controller} ], [ Name => $matcher->{name} ], [ Pattern => $matcher->{pattern} ], [ Path => $path ], [ '${^MATCH}' => ${^MATCH} ] ]
-        $view = $matcher;
-        if ( length $view->{extension} ) {
-            $path =~ s/[.]$view->{extension}\z//;
+        #### view matched: rows => [ [ Controller => ref $matcher->controller ], [ Name => $matcher->name ], [ Pattern => $matcher->pattern ], [ Path => $path ], [ q{$} . '{^MATCH}' => ${^MATCH} ] ]
+        $c->view($matcher);
+        if ( length $c->view->extension ) {
+            $path =~ s/[.]@{[$c->view->extension]}\z//;
         }
         last;
     }
 
-    my $action;
     foreach my $matcher ( @{ $self->action } ) {
-        #### action try matching: $path . ' =~ ' . $matcher->{pattern}
-        if ( $path !~ $matcher->{pattern} ) {
+        #### action try matching: $path . ' =~ ' . $matcher->pattern
+        if ( not $path =~ $matcher->pattern ) {
             next;
         }
-        $req->args( {%LAST_PAREN_MATCH} );
-        $req->argv(
+        $c->req->args( {%LAST_PAREN_MATCH} );
+        $c->req->argv(
             [ map { substr $path, $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] - $LAST_MATCH_START[$_] } 1 .. $#LAST_MATCH_START ] );
-        ### action matched: rows => [ [ Controller => ref $matcher->{controller} ], [ Name => $matcher->{name} ], [ Pattern => $matcher->{pattern} ], [ Path => $path ], [ '${^MATCH}' => ${^MATCH} ], map { [ '$' . $_, $req->argv->[ $_ - 1 ] ] } 1 .. @{ $req->argv } ]
-        $action = $matcher;
+        #### action matched: rows => [ [ Controller => ref $matcher->controller ], [ Name => $matcher->name ], [ Pattern => $matcher->pattern ], [ Path => $path ], [ q{$} . '{^MATCH}' => ${^MATCH} ], map { [ q{$} . $_, $c->req->argv->[ $_ - 1 ] ] } 1 .. @{ $c->req->argv } ]
+        $c->action($matcher);
         last;
     }
 
-    my $res = Slack::Response->new;
-    ### assert: not defined $res->status
-    ### assert: not defined $res->body
-    ### assert: not length $res->content_type
-
-    if ($action) {
+    if ( $c->action ) {
         ### Process action...
-        my $code = $action->{code}->{ $req->method };
-        if ( not $code and $req->method eq 'HEAD' ) {
-            $code = $action->{code}->{GET};
+        my $code = $c->action->code->{ $c->req->method };
+        if ( not $code and $c->req->method eq 'HEAD' ) {
+            $code = $c->action->code->{GET};
         }
         if ( not $code ) {
-            $res->status(HTTP_NOT_IMPLEMENTED);
-            $res->header( Allow => join ', ', keys $action->{code} );
-            return $res->finalize;
+            $c->res->status(HTTP_NOT_IMPLEMENTED);
+            $c->res->header( Allow => join ', ', keys $c->action->code );
+            return $c->res->finalize;
         }
-        $code->( $self, $action, $view, $req, $res );
+        $code->($c);
     }
     else {
-        $res->status(HTTP_NOT_FOUND);
-        $res->content_type('text/plain; charset=UTF-8');
-        $res->body( status_message(HTTP_NOT_FOUND) );
-        return $res->finalize;
+        $c->res->status(HTTP_NOT_FOUND);
+        $c->res->content_type('text/plain; charset=UTF-8');
+        $c->res->body( status_message(HTTP_NOT_FOUND) );
+        return $c->res->finalize;
     }
 
-    if ( not defined $res->body ) {
-        if ($view) {
+    if ( not defined $c->res->body ) {
+        if ( $c->view ) {
             ### Process view...
-            my $code = $view->{code}->{ $req->method } // $view->{code}->{GET};
-            $code->( $self, $action, $view, $req, $res );
+            my $code = $c->view->code->{ $c->req->method } // $c->view->code->{GET};
+            $code->($c);
         }
         else {
-            $res->body(q{});
+            $c->res->body(q{});
         }
     }
 
     ### Fixup response...
-    if ( $req->method eq 'HEAD' ) {
-        $res->body(undef);
+    if ( $c->req->method eq 'HEAD' ) {
+        $c->res->body(undef);
     }
 
-    if ( not $res->status ) {
-        $res->status(HTTP_OK);
+    if ( not $c->res->status ) {
+        $c->res->status(HTTP_OK);
     }
 
-    return $res->finalize;
+    return $c->res->finalize;
 }
 
 sub _by_priority {
-    return $a->{controller}->prefix =~ tr{/}{/} <=> $b->{controller}->prefix =~ tr{/}{/}
-      or length $a->{extension} ? 1 : 0 <=> length $b->{extension} ? 1 : 0;
+    return $a->controller->prefix =~ tr{/}{/} <=> $b->controller->prefix =~ tr{/}{/}
+      or length $a->extension ? 1 : 0 <=> length $b->extension ? 1 : 0;
 }
 
 1;

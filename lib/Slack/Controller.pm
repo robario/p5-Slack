@@ -6,14 +6,17 @@ use re qw(/msx);
 
 use Filter::Simple;
 use Plack::Component;
+use Slack::Matcher;
 use Slack::Util;
 
 FILTER_ONLY code => sub {
     state $replacement = {
         ## no critic (ValuesAndExpressions::RequireInterpolationOfMetachars)
-        req => '$_[3]',
-        res => '$_[4]',
+        c   => '$_[0]',
+        req => '$_[0]->req',
+        res => '$_[0]->res',
     };
+
     while ( my ( $keyword, $expression ) = each $replacement ) {
         s/(?<![\$@%&*])(?<!->)$keyword\b(?!\s*=>)/$expression/g;
     }
@@ -74,13 +77,13 @@ sub _create_stacker {
             else { ... }
 
             push @matcher,
-              {
+              Slack::Matcher->new(
+                code       => $code,
                 controller => $self,
+                extension  => $extension,
                 name       => $name,
                 pattern    => $pattern,
-                extension  => $extension,
-                code       => $code,
-              };
+              );
         }
         return @matcher;
     };

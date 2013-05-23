@@ -15,6 +15,11 @@ use Slack::Request;
 use Slack::Response;
 use Slack::Util;
 
+sub _by_priority {
+    return -( $a->controller->prefix =~ tr{/}{/} <=> $b->controller->prefix =~ tr{/}{/} )
+      || -( ( length $a->extension ? 1 : 0 ) <=> ( length $b->extension ? 1 : 0 ) );
+}
+
 sub new {
     my ( $class, @args ) = @_;
     ### Initialize...
@@ -75,8 +80,9 @@ sub prepare_app {
     }
     {
         use sort qw(stable);
-        push $self->action, reverse sort _by_priority @action;
-        push $self->view,   reverse sort _by_priority @view;
+
+        push $self->action, sort _by_priority @action;
+        push $self->view,   sort _by_priority @view;
     }
     ### action: rows => [ [qw(Controller Name Pattern)], map { [ ref $_->controller, $_->name, $_->pattern ] } @{ $self->action } ], header_row => 1
     ### view: rows => [ [qw(Controller Name Pattern)], map { [ ref $_->controller, $_->name, $_->pattern ] } @{ $self->view } ], header_row => 1
@@ -165,11 +171,6 @@ sub call {
     }
 
     return $c->res->finalize;
-}
-
-sub _by_priority {
-    return $a->controller->prefix =~ tr{/}{/} <=> $b->controller->prefix =~ tr{/}{/}
-      || ( length $a->extension ? 1 : 0 ) <=> ( length $b->extension ? 1 : 0 );
 }
 
 1;

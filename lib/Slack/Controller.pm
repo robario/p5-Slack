@@ -46,7 +46,8 @@ sub _create_stacker {
 
         # reconstruct matchers
         my $prefix = $self->prefix;
-        ### assert: $prefix =~ qr{\A/} and $prefix =~ qr{/\z}
+        ### assert: ref $prefix eq 'Regexp' or ref $prefix eq q{} and $prefix =~ qr{\A/} and $prefix =~ qr{/\z}
+        ### assert: ref $prefix eq q{} or ref $prefix eq 'Regexp' and "$prefix" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
         my @matcher;
         foreach my $source (@source) {
             my $name    = shift $source;
@@ -54,6 +55,7 @@ sub _create_stacker {
             my $code    = shift $source;
             my $extension;
 
+            ### assert: "$pattern" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
             if ( ref $pattern eq q{} ) {
                 $pattern = qr{\A$prefix\Q$pattern\E\z}p;
             }
@@ -64,7 +66,7 @@ sub _create_stacker {
                 $pattern   = qr{\A$prefix.*[.]$extension\z}p;
             }
             elsif ( ref $pattern eq 'Regexp' ) {
-                $pattern = qr{\A$prefix$pattern}p;
+                $pattern = qr{\A$prefix$pattern\z}p;
             }
             else { ... }
 

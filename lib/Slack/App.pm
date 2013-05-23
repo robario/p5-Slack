@@ -70,10 +70,9 @@ sub prepare_app {
         }
 
         my $appname = ref $self;
-        my $prefix  = $package . q{/};
-        $prefix =~ s/\A\Q$appname\E//;
-        $prefix =~ s{::}{/}g;
-        $prefix = lc $prefix;
+        ( my $prefix = $package ) =~ s/\A\Q$appname\E:://;
+        $prefix = join q{/}, map { lc s/(?<=.)\K([[:upper:]])/-$1/gr } split /::/, $prefix;
+        $prefix = q{/} . $prefix . q{/};
         my $controller = $package->new( prefix => $prefix );
         push @action, $controller->action;
         push @view,   $controller->view;

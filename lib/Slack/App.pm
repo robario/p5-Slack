@@ -169,7 +169,7 @@ sub call {
 
 sub _by_priority {
     return $a->controller->prefix =~ tr{/}{/} <=> $b->controller->prefix =~ tr{/}{/}
-      or length $a->extension ? 1 : 0 <=> length $b->extension ? 1 : 0;
+      || ( length $a->extension ? 1 : 0 ) <=> ( length $b->extension ? 1 : 0 );
 }
 
 1;

@@ -16,8 +16,7 @@ use Slack::Response;
 use Slack::Util;
 
 sub _by_priority {
-    return -( $a->controller->prefix =~ tr{/}{/} <=> $b->controller->prefix =~ tr{/}{/} )
-      || -( ( length $a->extension ? 1 : 0 ) <=> ( length $b->extension ? 1 : 0 ) );
+    return -( $a->controller->prefix =~ tr{/}{/} <=> $b->controller->prefix =~ tr{/}{/} ) || -( $a->priority <=> $b->priority );
 }
 
 sub new {

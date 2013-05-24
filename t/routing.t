@@ -1,0 +1,117 @@
+#! /usr/bin/perl
+eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
+  if 0;
+
+package main v0.0.0;
+use v5.14.0;
+use warnings;
+use encoding::warnings;
+use re qw(/msx);
+
+use Module::Loaded qw(mark_as_loaded);
+BEGIN { mark_as_loaded('MyApp::Web'); }
+
+## no critic (Modules::ProhibitMultiplePackages)
+
+1;
+
+#
+# Here is an example flattened.
+#
+
+# app.psgi
+package main;
+use MyApp::Web;
+my $app = MyApp::Web->new;
+
+1;
+
+# lib/MyApp/Web.pm
+package MyApp::Web;
+use Slack qw(App);
+
+1;
+
+# lib/MyApp/Web/RootExample.pm
+package MyApp::Web::RootExample;
+use Slack qw(Controller);
+
+sub prefix { return q{/}; }    # prefix '/root-example/' is changed to '/'
+
+action index => q{} => sub {
+    res->body('RootExample->index');
+};
+
+action default => qr/(.+)/ => sub {
+    res->body( 'RootExample->default with ' . req->argv->[0] );
+};
+
+1;
+
+# lib/MyApp/Web/Hello.pm
+package MyApp::Web::Hello;
+use Slack qw(Controller);
+
+action index => q{} => sub {
+    res->body('Hello->index');
+};
+
+action name => qr{(?<name>[^/]+)} => sub {
+    res->body( sprintf 'Hello, %s!', req->args->{name} );
+};
+
+action world => sub {
+    res->body('hello, world');
+};
+
+1;
+
+# lib/MyApp/Web/Hello/World.pm
+package MyApp::Web::Hello::World;
+use Slack qw(Controller);
+
+action index => q{} => sub {
+    res->body('Howdy, World!');
+};
+
+1;
+
+#
+# up to here
+#
+
+package T;
+use HTTP::Request::Common qw(GET);
+use Plack::Test qw(test_psgi);
+use Test::More;
+
+sub client {
+    my $cb = shift;
+    my $res;
+
+    $res = $cb->( GET q{/} );
+    is( $res->content, 'RootExample->index', 'index' );    # '/' = '/' + ''
+
+    $res = $cb->( GET '/the/world' );
+    is( $res->content, 'RootExample->default with the/world', 'qr/.+/ also matches slash' );    # '/the/world' = '/' + 'the/world'
+
+    $res = $cb->( GET '/hello' );
+    is( $res->content, 'RootExample->default with hello', 'without trailing-slash' );           # '/hello' = '/' + 'hello'
+
+    $res = $cb->( GET '/hello/' );
+    is( $res->content, 'Hello->index', 'with trailing-slash' );                                 # '/hello/' = '/hello/' + ''
+
+    $res = $cb->( GET '/hello/Slack' );
+    is( $res->content, 'Hello, Slack!', 'Hello->name matched' );    # '/hello/Slack' = '/hello/' + 'Slack'
+
+    $res = $cb->( GET '/hello/world' );
+    is( $res->content, 'hello, world', 'Hello->world higher priority than Hello->name' );    # '/hello/world' = '/hello/' + 'world'
+
+    $res = $cb->( GET '/hello/world/' );
+    is( $res->content, 'Howdy, World!', 'Hello->name does not match' );    # '/hello/world/' = '/hello/world/' + ''
+
+    return;
+}
+isa_ok( $app, 'MyApp::Web', 'The object' );
+test_psgi( $app->to_app, \&client );
+done_testing;

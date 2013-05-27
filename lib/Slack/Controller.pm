@@ -18,7 +18,7 @@ FILTER_ONLY code => sub {
     };
 
     while ( my ( $keyword, $expression ) = each $replacement ) {
-        s/(?<![\$@%&*])(?<!->)$keyword\b(?!\s*=>)/$expression/g;
+        s/(?<![\$@%&*]\s*)(?<!->\s*)\b$keyword\b(?!\s*=>)/$expression/g;
     }
 };
 

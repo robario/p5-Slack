@@ -4,6 +4,7 @@ use warnings;
 use encoding::warnings;
 use re qw(/msx);
 
+use Encode qw(find_encoding);
 use Filter::Simple;
 use Plack::Component;
 use Slack::Matcher;
@@ -17,9 +18,12 @@ FILTER_ONLY code => sub {
         res => '$_[0]->res',
     };
 
+    my $encoder = find_encoding('UTF-8');    # FIXME: guess encoding
+    $_ = $encoder->decode($_);
     while ( my ( $keyword, $expression ) = each $replacement ) {
         s/(?<![\$@%&*]\s*)(?<!->\s*)\b$keyword\b(?!\s*=>)/$expression/g;
     }
+    $_ = $encoder->encode($_);
 };
 
 sub import {

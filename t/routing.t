@@ -11,7 +11,7 @@ use re qw(/msx);
 use Module::Loaded qw(mark_as_loaded);
 BEGIN { mark_as_loaded('MyApp::Web'); }
 
-## no critic (Modules::ProhibitMultiplePackages)
+## no critic qw(Modules::ProhibitMultiplePackages)
 
 1;
 

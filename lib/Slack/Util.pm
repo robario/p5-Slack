@@ -18,9 +18,8 @@ BEGIN {
 }
 
 BEGIN {
-    ## no critic (TestingAndDebugging::ProhibitNoWarnings)
-    ## no critic (Variables::ProtectPrivateVars)
-    no warnings qw(redefine);
+    ## no critic qw(Variables::ProtectPrivateVars)
+    no warnings qw(redefine);    ## no critic qw(TestingAndDebugging::ProhibitNoWarnings)
 
     my $patch_for = sub {
         my ( $class, $version ) = @_;

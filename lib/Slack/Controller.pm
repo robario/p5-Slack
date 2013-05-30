@@ -48,7 +48,7 @@ sub import {
     ### assert: caller eq 'Slack'
     my $caller = caller 1;
     foreach my $type (qw(view action)) {
-        no strict qw(refs);    ## no critic (TestingAndDebugging::ProhibitNoStrict)
+        no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
         *{ $caller . q{::} . $type } = $class->_create_stacker();
     }
     return;

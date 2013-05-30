@@ -5,24 +5,41 @@ use encoding::warnings;
 use re qw(/msx);
 
 use Encode qw(find_encoding);
+use English qw(-no_match_vars);
 use Filter::Simple;
 use Plack::Component;
 use Slack::Matcher;
 use Slack::Util;
 
 FILTER_ONLY code => sub {
-    state $replacement = {
-        ## no critic (ValuesAndExpressions::RequireInterpolationOfMetachars)
-        c   => '$_[0]',
-        req => '$_[0]->req',
-        res => '$_[0]->res',
-    };
+    state $keyword_pattern = join q{|}, qw(c req res);
+    state $keyword_re      = qr/ \b (?<keyword>$keyword_pattern) \b /;
+    state $asis_pattern    = join q{|}, (
+        ## no critic qw(ValuesAndExpressions::RequireInterpolationOfMetachars)
+        q[{'],              # variable name or hash key
+        '->',               # method call
+        quotemeta q{$#},    # last index op
+        ( sprintf '.?[%s]', quotemeta '$@%*' ),    # symbol table lookup without `&`
+        '(?!<&)&',                                 # symbol table lookup by `&` except `&&` op
+    );
+    state $asis_re = qr/\A (?:$asis_pattern) \z/;
 
-    my $encoder = find_encoding('UTF-8');    # FIXME: guess encoding
+    my $encoder = find_encoding('UTF-8');          # FIXME: guess encoding
     $_ = $encoder->decode($_);
-    while ( my ( $keyword, $expression ) = each $replacement ) {
-        s/(?<![\$@%&*]\s*)(?<!->\s*)\b$keyword\b(?!\s*=>)/$expression/g;
-    }
+
+    # mark as variable name or hash key
+    s/ { \s* $keyword_re \s* } /{'$LAST_PAREN_MATCH{keyword}'}/g;
+
+    # keyword expansion
+    s{
+      (?<before> \S{0,2} ) \s* \K    # keep because only for checking
+      $keyword_re
+      (?! \s* => )                   # avoid hash key
+    }{
+        my $keyword = $LAST_PAREN_MATCH{keyword};
+        $LAST_PAREN_MATCH{before} =~ $asis_re ? $keyword : q{$} . '_[0]' . ( $keyword eq 'c' ? q{} : "->$keyword" );
+    }eg;
+
     $_ = $encoder->encode($_);
 };
 

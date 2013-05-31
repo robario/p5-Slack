@@ -4,8 +4,16 @@ use warnings;
 use encoding::warnings;
 use parent qw(Plack::Request);
 
+use Encode qw(find_encoding);
 use Plack::Util::Accessor qw(args argv);
 use Slack::Util;
+
+sub new {
+    my ( undef, $env ) = @_;
+    my $encoder = find_encoding('UTF-8');    # FIXME: guess encoding
+    $env->{PATH_INFO} = $encoder->decode( $env->{PATH_INFO} );
+    goto \&Plack::Request::new;
+}
 
 sub param {
     my ($self) = @_;

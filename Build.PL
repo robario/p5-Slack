@@ -31,7 +31,6 @@ EOT
     requires    => {
         'HTTP::Status' => 0,
         'Plack'        => 0,
-        'Template'     => 0,
     },
     recommends => {
         'Text::Table::Tiny' => 0,

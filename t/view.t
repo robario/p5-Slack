@@ -15,8 +15,12 @@ use Carp qw(croak);
 use Encode qw(find_encoding);
 use FindBin qw($Bin);
 use JSON::PP;
+use Module::Loaded qw(is_loaded);
 use Slack qw(Controller);
-use Template;
+
+BEGIN {
+    eval { require Template; Template->import; } or 'do nothing';
+}
 
 sub prefix { return q{/}; }
 
@@ -26,6 +30,10 @@ action default => qr{(?<name>.+)} => sub {
 
 sub html {
     my @args = @_;
+
+    if ( not is_loaded('Template') ) {
+        return sub { };
+    }
 
     my $tt = Template->new(
         {
@@ -87,6 +95,7 @@ use autodie;
 use Encode qw(encode);
 use FindBin qw($Bin);
 use HTTP::Request::Common qw(GET);
+use Module::Loaded qw(is_loaded);
 use Plack::Test qw(test_psgi);
 use Test::More;
 
@@ -94,35 +103,40 @@ sub client {
     my $cb = shift;
     my $res;
 
-    my %format;
-    foreach my $name (qw(pc mobile)) {
-        open my $fh, q{<:encoding(UTF-8)}, "$Bin/view/wrapper.$name.tt";
-        $fh->sysread( $format{$name} = q{}, -s $fh );
-        $fh->close;
-        $format{$name} =~ s/\Q[% content %]\E/%s/;
-    }
+  SKIP: {
+        if ( not is_loaded('Template') ) {
+            skip( 'require Template', 3 );    ## no critic qw(ValuesAndExpressions::ProhibitMagicNumbers)
+        }
+        my %format;
+        foreach my $name (qw(pc mobile)) {
+            open my $fh, q{<:encoding(UTF-8)}, "$Bin/view/wrapper.$name.tt";
+            $fh->sysread( $format{$name} = q{}, -s $fh );
+            $fh->close;
+            $format{$name} =~ s/\Q[% content %]\E/%s/;
+        }
 
-    $res = $cb->( GET '/foo' );
-    is( $res->content, ( sprintf $format{'pc'}, 'foo' ), 'default view' );
+        $res = $cb->( GET '/foo' );
+        is( $res->content, ( sprintf $format{'pc'}, 'foo' ), 'default view' );
+
+        my $unicode = do { use utf8; '日本語'; };
+        my %pe = map {
+            $_ => do {
+                use bytes;
+                encode( $_, $unicode ) =~ s/([^\w ])/'%' . ( unpack 'H2', $1 )/egr =~ tr/ /+/r;
+              }
+        } qw(UTF-8 cp932);
+
+        $res = $cb->( GET sprintf '/%s.mobile', $pe{'UTF-8'} );
+        is( $res->content, encode( 'cp932', sprintf $format{'mobile'}, $unicode ), 'mobile view' );
+      TODO: {
+            local $TODO = 'should guess encoding';
+            $res = $cb->( GET sprintf '/%s.mobile', $pe{cp932} );
+            is( $res->content, encode( 'cp932', sprintf $format{'mobile'}, $unicode ), 'mobile view' );
+        }
+    }
 
     $res = $cb->( GET '/foo.xml' );
     like( $res->content, qr/\A\QThis extension is not supported.\E/, 'no view' );
-
-    my $unicode = do { use utf8; '日本語'; };
-    my %pe = map {
-        $_ => do {
-            use bytes;
-            encode( $_, $unicode ) =~ s/([^\w ])/'%' . ( unpack 'H2', $1 )/egr =~ tr/ /+/r;
-          }
-    } qw(UTF-8 cp932);
-
-    $res = $cb->( GET sprintf '/%s.mobile', $pe{'UTF-8'} );
-    is( $res->content, encode( 'cp932', sprintf $format{'mobile'}, $unicode ), 'mobile view' );
-  TODO: {
-        local $TODO = 'should guess encoding';
-        $res = $cb->( GET sprintf '/%s.mobile', $pe{cp932} );
-        is( $res->content, encode( 'cp932', sprintf $format{'mobile'}, $unicode ), 'mobile view' );
-    }
 
     $res = $cb->( GET '/foo.json' );
     is( $res->content, '{"name":"foo"}', 'json view' );

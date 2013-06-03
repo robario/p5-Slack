@@ -75,23 +75,23 @@ sub _create_stacker {
             my $pattern = @{$source} == 1 ? $name : shift $source;
             my $code    = shift $source;
             my $extension;
-            my $priority;
+            my $priority = ( $prefix =~ tr{/}{/} ) << 2;
 
             ### assert: "$pattern" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
             if ( ref $pattern eq q{} ) {
-                $priority = 2;
-                $pattern  = qr{\A$prefix\Q$pattern\E\z}p;
+                $priority += 2;
+                $pattern = qr{\A$prefix\Q$pattern\E\z}p;
             }
             elsif ( ref $pattern eq 'HASH' ) {    # XXX: view only
                 ### assert: length $pattern->{extension}
                 ### assert: q{.} ne substr $pattern->{extension}, 0, 1
-                $priority  = 1;
+                $priority += 1;
                 $extension = $pattern->{extension};
                 $pattern   = qr{\A$prefix.*[.]$extension\z}p;
             }
             elsif ( ref $pattern eq 'Regexp' ) {
-                $priority = 0;
-                $pattern  = qr{\A$prefix$pattern\z}p;
+                $priority += 0;
+                $pattern = qr{\A$prefix$pattern\z}p;
             }
             else { ... }
 

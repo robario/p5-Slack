@@ -99,7 +99,7 @@ sub _create_stacker {
                 $code = { GET => $code };
             }
             elsif ( ref $code eq 'HASH' ) {
-                ### assert: scalar keys $code == scalar grep { $_ =~ qr/\A(?:HEAD|GET|POST|PUT|DELETE)\z/ } keys $code;
+                ### assert: not exists $code->{HEAD}
             }
             else { ... }
 

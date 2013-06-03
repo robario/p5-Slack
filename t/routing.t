@@ -42,10 +42,6 @@ action index => q{} => sub {
     res->body('RootExample->index');
 };
 
-action default => qr/(.+)/ => sub {
-    res->body( 'RootExample->default with ' . req->argv->[0] );
-};
-
 1;
 
 # lib/MyApp/Web/Hello.pm
@@ -62,6 +58,10 @@ action name => qr{(?<name>[^/]+)} => sub {
 
 action world => sub {
     res->body('hello, world');
+};
+
+action default => qr/(.+)/ => sub {
+    res->body( sprintf 'Hello->default with %s', req->argv->[0] );
 };
 
 1;
@@ -81,7 +81,8 @@ action index => q{} => sub {
 #
 
 package T;
-use HTTP::Request::Common qw(GET);
+use HTTP::Request::Common qw(GET POST);
+use HTTP::Status qw(:constants);
 use Plack::Test qw(test_psgi);
 use Test::More;
 
@@ -92,17 +93,20 @@ sub client {
     $res = $cb->( GET q{/} );
     is( $res->content, 'RootExample->index', 'index' );    # '/' = '/' + ''
 
-    $res = $cb->( GET '/the/world' );
-    is( $res->content, 'RootExample->default with the/world', 'qr/.+/ also matches slash' );    # '/the/world' = '/' + 'the/world'
+    $res = $cb->( POST q{/} );
+    is( $res->code, HTTP_METHOD_NOT_ALLOWED, 'invalid request method' );
 
     $res = $cb->( GET '/hello' );
-    is( $res->content, 'RootExample->default with hello', 'without trailing-slash' );           # '/hello' = '/' + 'hello'
+    is( $res->code, HTTP_NOT_FOUND, 'without trailing-slash' );    # '/hello' = '/' + 'hello'
 
     $res = $cb->( GET '/hello/' );
-    is( $res->content, 'Hello->index', 'with trailing-slash' );                                 # '/hello/' = '/hello/' + ''
+    is( $res->content, 'Hello->index', 'with trailing-slash' );    # '/hello/' = '/hello/' + ''
 
     $res = $cb->( GET '/hello/Slack' );
     is( $res->content, 'Hello, Slack!', 'Hello->name matched' );    # '/hello/Slack' = '/hello/' + 'Slack'
+
+    $res = $cb->( GET '/hello/Slack/' );
+    is( $res->content, 'Hello->default with Slack/', 'qr/.+/ also matches slash' );    # '/hello/Slack/' = '/hello/' + 'Slack/'
 
     $res = $cb->( GET '/hello/world' );
     is( $res->content, 'hello, world', 'Hello->world higher priority than Hello->name' );    # '/hello/world' = '/hello/' + 'world'

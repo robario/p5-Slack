@@ -6,7 +6,7 @@ use re qw(/msx);
 use parent qw(Plack::Component);
 
 use English qw(-no_match_vars);
-use HTTP::Status qw(:constants status_message);
+use HTTP::Status qw(:constants status_message is_client_error);
 use Module::Load qw(load);
 use Module::Pluggable::Object;
 use Plack::Util::Accessor qw(config action view);
@@ -94,11 +94,8 @@ sub call {
     my $c = Slack::Context->new(
         app => $self,
         req => Slack::Request->new($env),
-        res => Slack::Response->new,
+        res => Slack::Response->new(0),
     );
-    ### assert: not defined $c->res->status
-    ### assert: not defined $c->res->body
-    ### assert: not length $c->res->content_type
 
     my $path = $c->req->path;
 
@@ -128,30 +125,32 @@ sub call {
         last;
     }
 
+    # urn:ietf:rfc:2616#9.4: The HEAD method is identical to GET
+    my $method = $c->req->method eq 'HEAD' ? 'GET' : $c->req->method;
+
     if ( $c->action ) {
-        ### Process action...
-        my $code = $c->action->code->{ $c->req->method };
-        if ( not $code and $c->req->method eq 'HEAD' ) {
-            $code = $c->action->code->{GET};
+        my $code = $c->action->code->{$method};
+        if ($code) {
+            #### Process action...
+            $code->($c);
         }
-        if ( not $code ) {
-            $c->res->status(HTTP_NOT_IMPLEMENTED);
+        else {
+            # urn:ietf:rfc:2616#10.4.6
+            # The method specified in the Request-Line is not allowed for the resource identified by the Request-URI
+            # The response MUST include an Allow header containing a list of valid methods for the requested resource
+            $c->res->status(HTTP_METHOD_NOT_ALLOWED);
             $c->res->header( Allow => join ', ', keys $c->action->code );
-            return $c->res->finalize;
         }
-        $code->($c);
     }
     else {
+        # urn:ietf:rfc:2616#10.4.5: The server has not found anything matching the Request-URI
         $c->res->status(HTTP_NOT_FOUND);
-        $c->res->content_type('text/plain; charset=UTF-8');
-        $c->res->body( status_message(HTTP_NOT_FOUND) );
-        return $c->res->finalize;
     }
 
     if ( not defined $c->res->body ) {
         if ( $c->view ) {
-            ### Process view...
-            my $code = $c->view->code->{ $c->req->method } // $c->view->code->{GET};
+            my $code = $c->view->code->{$method} // $c->view->code->{GET};
+            #### Process view...
             $code->($c);
         }
         else {
@@ -159,11 +158,20 @@ sub call {
         }
     }
 
-    ### Fixup response...
+    #### Fixup response...
+
+    # urn:ietf:rfc:2616#10.4: the server SHOULD include an entity containing an explanation of the error situation
+    if ( not defined $c->res->body and is_client_error( $c->res->status ) ) {
+        $c->res->content_type('text/plain; charset=UTF-8');
+        $c->res->body( status_message( $c->res->status ) );
+    }
+
+    # urn:ietf:rfc:2616#9.4: the server MUST NOT return a message-body in the response
     if ( $c->req->method eq 'HEAD' ) {
         $c->res->body(undef);
     }
 
+    # the default response status code is 200
     if ( not $c->res->status ) {
         $c->res->status(HTTP_OK);
     }

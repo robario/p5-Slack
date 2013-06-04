@@ -7,7 +7,7 @@ use version;
 
 use Carp qw(carp);
 use Data::Dumper;
-use Encode qw(decode_utf8);
+use Encode qw(find_encoding);
 use Time::Piece;
 
 BEGIN {
@@ -32,7 +32,8 @@ BEGIN {
     $patch_for->( 'Time::Piece' => '1.20_01' );
     my $strftime = \&Time::Piece::strftime;
     *Time::Piece::strftime = sub {
-        return decode_utf8( $strftime->(@_) );
+        state $encoder = find_encoding('UTF-8');
+        return $encoder->decode( $strftime->(@_) );
     };
 
     # Smart::Comments enhancer

@@ -83,7 +83,7 @@ sub todo {
     return;
 }
 
-package main v0.0.0;
+package main v0.1.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;

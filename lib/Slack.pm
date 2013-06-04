@@ -1,5 +1,5 @@
-package Slack v0.4.0;
-use v5.12.0;
+package Slack v0.5.0;
+use v5.14.0;
 use warnings;
 use encoding::warnings;
 
@@ -9,12 +9,14 @@ use Slack::Util;
 sub import {
     my ( undef, @args ) = @_;
 
+    Slack::Util->import;    # for apply Smart::Comments to caller
+
     my $caller = caller;
     foreach my $component ( map { 'Slack::' . $_ } @args ) {
         load $component;
         $component->import;
         {
-            no strict qw(refs);    ## no critic (TestingAndDebugging::ProhibitNoStrict)
+            no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
             push @{ $caller . '::ISA' }, $component;
         }
     }

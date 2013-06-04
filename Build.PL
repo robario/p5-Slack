@@ -2,8 +2,8 @@
 eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
   if 0;
 
-package main v0.1.3;
-use v5.12.0;
+package main v0.1.4;
+use v5.14.0;
 use warnings;
 use encoding::warnings;
 
@@ -31,7 +31,9 @@ EOT
     requires    => {
         'HTTP::Status' => 0,
         'Plack'        => 0,
-        'Template'     => 0,
+    },
+    recommends => {
+        'Text::Table::Tiny' => 0,
     },
     add_to_cleanup => [
         qw(

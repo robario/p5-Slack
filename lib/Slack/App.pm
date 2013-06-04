@@ -1,24 +1,22 @@
-package Slack::App v0.2.0;
-use v5.12.0;
+package Slack::App v0.3.0;
+use v5.14.0;
 use warnings;
 use encoding::warnings;
 use re qw(/msx);
 use parent qw(Plack::Component);
 
-use Carp qw(croak);
-use Encode qw(encode_utf8);
 use English qw(-no_match_vars);
-use HTTP::Status qw(:constants status_message);
+use HTTP::Status qw(:constants status_message is_client_error);
 use Module::Load qw(load);
 use Module::Pluggable::Object;
-use Plack::Util::Accessor qw(config controller);
+use Plack::Util::Accessor qw(config action view);
+use Slack::Context;
 use Slack::Request;
 use Slack::Response;
 use Slack::Util;
 
-sub import {
-    Slack::Util->import;
-    return;
+sub _by_priority {
+    return -( $a->priority <=> $b->priority );
 }
 
 sub new {
@@ -26,18 +24,28 @@ sub new {
     ### Initialize...
     my $self = $class->SUPER::new(
         config => ref $args[0] eq 'HASH' ? $args[0] : {@args},
-        controller => [],
+        action => [],
+        view   => [],
     );
 
-    $self->config->{environment} //= $ENV{PLACK_ENV};
     $self->config->{appdir} //= do {
         require Cwd;
         my $pm = $class =~ s{::}{/}gr . '.pm';
         if ( $INC{$pm} ) {
-            my $dir = Cwd::abs_path( ( $INC{$pm} =~ s/\Q$pm\E\z//r ) . q{..} );
-            $dir =~ s{/blib}{}r;
+            my $dir = $INC{$pm};
+            if ( $dir =~ s/\Q$pm\E\z// ) {
+                $dir .= q{..};
+            }
+            else {
+                # non-standard directory structure
+                $dir =~ s{[^/]+\z}{};
+            }
+            $dir = Cwd::abs_path($dir);
+            $dir =~ s{/blib}{};
+            $dir;
         }
-        else {    # for oneliner
+        else {
+            # for one-liner
             Cwd::getcwd;
         }
     };
@@ -50,30 +58,32 @@ sub prepare_app {
     my $self = shift;
 
     ### Setup Configuration...
-    $self->config->{Template}->{INCLUDE_PATH} //= $self->config->{rootdir};
-    $self->config->{Template}->{ENCODING} //= 'utf8';
     ### config: $self->config
 
     ### Setup Controller...
+    my @action;
+    my @view;
     foreach my $package ( Module::Pluggable::Object->new( search_path => [ ref $self ] )->plugins ) {
-        load $package;
-        push $self->controller, $package->new( app => $self );
-    }
+        if ( not $package->can('new') ) {
+            load $package;
+        }
 
-    ### Setup View...
-    $self->{view} //= {
-        renderer => do {
-            my $renderer = 'Template';
-            load $renderer;
-            $renderer->new( $self->config->{$renderer} );
-        },
-        code => sub {
-            my ( $self, $controller, $action, $req, $res ) = @_;
-            my $template = $controller->prefix =~ s{\A/}{}r . $action->{name} . '.tt';
-            $self->process( $template, $res->stash, \my $output ) or croak $self->error();
-            return $output;
-        },
-    };
+        my $appname = ref $self;
+        ( my $prefix = $package ) =~ s/\A\Q$appname\E:://;
+        $prefix = join q{/}, map { lc s/(?<=.)\K([[:upper:]])/-$1/gr } split /::/, $prefix;
+        $prefix = q{/} . $prefix . q{/};
+        my $controller = $package->new( prefix => $prefix );
+        push @action, $controller->action;
+        push @view,   $controller->view;
+    }
+    {
+        use sort qw(stable);
+
+        push $self->action, sort _by_priority @action;
+        push $self->view,   sort _by_priority @view;
+    }
+    ### action: rows => [ [qw(Controller Name Pattern)], map { [ ref $_->controller, $_->name, $_->pattern ] } @{ $self->action } ], header_row => 1
+    ### view: rows => [ [qw(Controller Name Pattern)], map { [ ref $_->controller, $_->name, $_->pattern ] } @{ $self->view } ], header_row => 1
 
     return;
 }
@@ -81,69 +91,92 @@ sub prepare_app {
 sub call {
     my ( $self, $env ) = @_;
 
-    my $req = Slack::Request->new($env);
+    my $c = Slack::Context->new(
+        app => $self,
+        req => Slack::Request->new($env),
+        res => Slack::Response->new(0),
+    );
 
-    my %matched = ( maxlen => 0 );
-    foreach my $controller ( @{ $self->controller } ) {
-        foreach my $action ( @{ $controller->action } ) {
-            #### try matching: $req->path . ' =~ ' . $action->{pattern}
-            if ( $req->path =~ $action->{pattern} ) {
-                ### matched: ${^MATCH}
-                if ( length ${^MATCH} < $matched{maxlen} ) {
-                    ### go through...
-                    next;
-                }
-                %matched = (
-                    maxlen     => length ${^MATCH},
-                    action     => $action,
-                    controller => $controller,
-                    args       => {%LAST_PAREN_MATCH},
-                    argv       => [
-                        map { substr $req->path, $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] - $LAST_MATCH_START[$_] }
-                          1 .. $#LAST_MATCH_START
-                    ],
-                );
-            }
+    my $path = $c->req->path;
+
+    foreach my $matcher ( @{ $self->view } ) {
+        #### view try matching: $path . ' =~ ' . $matcher->pattern
+        if ( not $path =~ $matcher->pattern ) {
+            next;
         }
+        #### view matched: rows => [ [ Controller => ref $matcher->controller ], [ Name => $matcher->name ], [ Pattern => $matcher->pattern ], [ Path => $path ], [ q{$} . '{^MATCH}' => ${^MATCH} ] ]
+        $c->view($matcher);
+        if ( length $c->view->extension ) {
+            $path =~ s/[.]@{[$c->view->extension]}\z//;
+        }
+        last;
     }
 
-    my $res = Slack::Response->new;
-    $res->stash->{c} = { app => $self, req => $req };    # for template
-    ### assert: not defined $res->status
-    ### assert: not defined $res->body
-    ### assert: not length $res->content_type
-
-    if ( $matched{maxlen} ) {
-        my $action     = $matched{action};
-        my $controller = $matched{controller};
-        $req->args( $matched{args} );
-        $req->argv( $matched{argv} );
-
-        if ( exists $action->{code}->{ $req->method } ) {
-            $action->{code}->{ $req->method }->( $controller, $action, $req, $res );
+    foreach my $matcher ( @{ $self->action } ) {
+        #### action try matching: $path . ' =~ ' . $matcher->pattern
+        if ( not $path =~ $matcher->pattern ) {
+            next;
         }
+        $c->req->args( {%LAST_PAREN_MATCH} );
+        $c->req->argv(
+            [ map { substr $path, $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] - $LAST_MATCH_START[$_] } 1 .. $#LAST_MATCH_START ] );
+        #### action matched: rows => [ [ Controller => ref $matcher->controller ], [ Name => $matcher->name ], [ Pattern => $matcher->pattern ], [ Path => $path ], [ q{$} . '{^MATCH}' => ${^MATCH} ], map { [ q{$} . $_, $c->req->argv->[ $_ - 1 ] ] } 1 .. @{ $c->req->argv } ]
+        $c->action($matcher);
+        last;
+    }
 
-        if ( not $res->status ) {
-            $res->status(HTTP_OK);
+    # urn:ietf:rfc:2616#9.4: The HEAD method is identical to GET
+    my $method = $c->req->method eq 'HEAD' ? 'GET' : $c->req->method;
+
+    if ( $c->action ) {
+        my $code = $c->action->code->{$method};
+        if ($code) {
+            #### Process action...
+            $code->($c);
         }
-
-        if ( not defined $res->body ) {
-            if ( not length $res->content_type ) {
-                $res->content_type('text/html; charset=UTF-8');
-            }
-
-            my $output = $self->{view}->{code}->( $self->{view}->{renderer}, $controller, $action, $req, $res );
-            $res->body( encode_utf8( $output // q{} ) );
+        else {
+            # urn:ietf:rfc:2616#10.4.6
+            # The method specified in the Request-Line is not allowed for the resource identified by the Request-URI
+            # The response MUST include an Allow header containing a list of valid methods for the requested resource
+            $c->res->status(HTTP_METHOD_NOT_ALLOWED);
+            $c->res->header( Allow => join ', ', keys $c->action->code );
         }
-
     }
     else {
-        $res->status(HTTP_NOT_FOUND);
-        $res->content_type('text/plain; charset=UTF-8');
-        $res->body( status_message(HTTP_NOT_FOUND) );
+        # urn:ietf:rfc:2616#10.4.5: The server has not found anything matching the Request-URI
+        $c->res->status(HTTP_NOT_FOUND);
     }
 
-    return $res->finalize;
+    if ( not defined $c->res->body ) {
+        if ( $c->view ) {
+            my $code = $c->view->code->{$method} // $c->view->code->{GET};
+            #### Process view...
+            $code->($c);
+        }
+        else {
+            $c->res->body(q{});
+        }
+    }
+
+    #### Fixup response...
+
+    # urn:ietf:rfc:2616#10.4: the server SHOULD include an entity containing an explanation of the error situation
+    if ( not defined $c->res->body and is_client_error( $c->res->status ) ) {
+        $c->res->content_type('text/plain; charset=UTF-8');
+        $c->res->body( status_message( $c->res->status ) );
+    }
+
+    # urn:ietf:rfc:2616#9.4: the server MUST NOT return a message-body in the response
+    if ( $c->req->method eq 'HEAD' ) {
+        $c->res->body(undef);
+    }
+
+    # the default response status code is 200
+    if ( not $c->res->status ) {
+        $c->res->status(HTTP_OK);
+    }
+
+    return $c->res->finalize;
 }
 
 1;

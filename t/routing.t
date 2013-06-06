@@ -19,13 +19,6 @@ BEGIN { mark_as_loaded('MyApp::Web'); }
 # Here is an example flattened.
 #
 
-# app.psgi
-package main;
-use MyApp::Web;
-my $app = MyApp::Web->new;
-
-1;
-
 # lib/MyApp/Web.pm
 package MyApp::Web;
 use Slack qw(App);
@@ -76,11 +69,19 @@ action index => q{} => sub {
 
 1;
 
+# app.psgi
+package main;
+use MyApp::Web;
+my $app = MyApp::Web->new;
+
+1;
+
 #
 # up to here
 #
 
 package T;
+use FindBin qw($Bin);
 use HTTP::Request::Common qw(GET POST);
 use HTTP::Status qw(:constants);
 use Plack::Test qw(test_psgi);
@@ -117,5 +118,6 @@ sub client {
     return;
 }
 isa_ok( $app, 'MyApp::Web', 'The object' );
+is( $app->config->{appdir}, $Bin, 'appdir detection' );
 test_psgi( $app->to_app, \&client );
 done_testing;

@@ -29,24 +29,22 @@ sub new {
     );
 
     $self->config->{appdir} //= do {
-        require Cwd;
+        require File::Spec;
         my $pm = $class =~ s{::}{/}gr . '.pm';
-        if ( $INC{$pm} ) {
-            my $dir = $INC{$pm};
-            if ( $dir =~ s/\Q$pm\E\z// ) {
-                $dir .= q{..};
-            }
-            else {
-                # non-standard directory structure
-                $dir =~ s{[^/]+\z}{};
-            }
-            $dir = Cwd::abs_path($dir);
-            $dir =~ s{/blib}{};
-            $dir;
+        my $dir = exists $INC{$pm} ? File::Spec->rel2abs( $INC{$pm} ) : q{};
+        if ( $PROGRAM_NAME eq '-e' ) {
+
+            # one-liner
+            File::Spec->rel2abs( File::Spec->curdir );
+        }
+        elsif ( $dir =~ s/\Q$pm\E\z// and $dir =~ s{/lib/\z}{} ) {
+
+            # standard structure
+            $dir =~ s{/blib\z}{}r;    # for built
         }
         else {
-            # for one-liner
-            Cwd::getcwd;
+            # installed or mark_as_loaded probably
+            File::Spec->rel2abs($PROGRAM_NAME) =~ s{/[^/]*\z}{}r;
         }
     };
     $self->config->{rootdir} //= $self->config->{appdir} . '/root';

@@ -22,34 +22,11 @@ sub _by_priority {
 sub new {
     my ( $class, @args ) = @_;
     ### Initialize...
-    my $self = $class->SUPER::new(
+    return $class->SUPER::new(
         config => ref $args[0] eq 'HASH' ? $args[0] : {@args},
         action => [],
         view   => [],
     );
-
-    $self->config->{appdir} //= do {
-        require File::Spec;
-        my $pm = $class =~ s{::}{/}gr . '.pm';
-        my $dir = exists $INC{$pm} ? File::Spec->rel2abs( $INC{$pm} ) : q{};
-        if ( $PROGRAM_NAME eq '-e' ) {
-
-            # one-liner
-            File::Spec->rel2abs( File::Spec->curdir );
-        }
-        elsif ( $dir =~ s/\Q$pm\E\z// and $dir =~ s{/lib/\z}{} ) {
-
-            # standard structure
-            $dir =~ s{/blib\z}{}r;    # for built
-        }
-        else {
-            # installed or mark_as_loaded probably
-            File::Spec->rel2abs($PROGRAM_NAME) =~ s{/[^/]*\z}{}r;
-        }
-    };
-    $self->config->{rootdir} //= $self->config->{appdir} . '/root';
-
-    return $self;
 }
 
 sub prepare_app {

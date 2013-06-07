@@ -118,6 +118,5 @@ sub client {
     return;
 }
 isa_ok( $app, 'MyApp::Web', 'The object' );
-is( $app->config->{appdir}, $Bin, 'appdir detection' );
 test_psgi( $app->to_app, \&client );
 done_testing;

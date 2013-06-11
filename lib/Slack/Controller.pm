@@ -7,9 +7,8 @@ use re qw(/msx);
 use Encode qw(find_encoding);
 use English qw(-no_match_vars);
 use Filter::Simple;
-use Plack::Component;
 use Slack::Matcher;
-use Slack::Util;
+use Slack::Util qw(new);
 
 FILTER_ONLY code => sub {
     state $keyword_pattern = join q{|}, qw(c req res);
@@ -115,12 +114,6 @@ sub _create_stacker {
         }
         return @matcher;
     };
-}
-
-sub new {
-    my ( $class, @args ) = @_;
-    ### assert: $class ne __PACKAGE__
-    goto \&Plack::Component::new;
 }
 
 sub prefix {

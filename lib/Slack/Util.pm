@@ -106,7 +106,41 @@ BEGIN {
     };
 }
 
+sub to_ref {
+    my @arg = @_;
+    if ( not @arg ) {
+        return {};
+    }
+
+    state $single = { HASH => 1, ARRAY => 1 };
+    if ( @arg == 1 and $single->{ ref $arg[0] } ) {
+        return $arg[0];
+    }
+
+    # looks like not a hash
+    if ( @arg % 2 == 1 ) {
+        return \@arg;
+    }
+
+    # ditto
+    for my $i ( 0 .. $#arg / 2 ) {
+        if ( not defined $arg[ $i * 2 ] or ref $arg[ $i * 2 ] ) {
+            return \@arg;
+        }
+    }
+
+    # looks like a hash
+    return {@arg};
+}
+
 sub import {
+    my ( undef, @arg ) = @_;
+
+    my $caller = caller;
+    foreach my $method (@arg) {
+        no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+        *{ $caller . q{::} . $method } = *{ __PACKAGE__ . q{::} . $method }{CODE};
+    }
 
     # enable Smart::Comments for caller
     if ( eval { require Smart::Comments; } ) {
@@ -114,6 +148,13 @@ sub import {
     }
 
     return;
+}
+
+sub new {
+    my ( $proto, @arg ) = @_;
+    my $class = ref $proto || $proto;
+    ### assert: $class ne __PACKAGE__
+    return bless to_ref(@arg), $class;
 }
 
 1;

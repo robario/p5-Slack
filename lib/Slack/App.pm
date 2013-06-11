@@ -13,7 +13,7 @@ use Plack::Util::Accessor qw(config action view);
 use Slack::Context;
 use Slack::Request;
 use Slack::Response;
-use Slack::Util;
+use Slack::Util qw(to_ref);
 
 sub _by_priority {
     return -( $a->priority <=> $b->priority );
@@ -21,11 +21,12 @@ sub _by_priority {
 
 sub new {
     my ( $class, @args ) = @_;
-    ### Initialize...
-    return $class->SUPER::new(
-        config => ref $args[0] eq 'HASH' ? $args[0] : {@args},
-        action => [],
-        view   => [],
+    return Slack::Util::new(
+        $class => {
+            config => to_ref(@args),
+            action => [],
+            view   => [],
+        }
     );
 }
 

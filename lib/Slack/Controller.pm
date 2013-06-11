@@ -66,8 +66,8 @@ sub _create_stacker {
 
         # reconstruct matchers
         my $prefix = $self->prefix;
-        ### assert: ref $prefix eq 'Regexp' or ref $prefix eq q{} and $prefix =~ qr{\A/} and $prefix =~ qr{/\z}
-        ### assert: ref $prefix eq q{} or ref $prefix eq 'Regexp' and "$prefix" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
+        ### assert: ref $prefix eq 'Regexp' or not ref $prefix and $prefix =~ qr{\A/} and $prefix =~ qr{/\z}
+        ### assert: not ref $prefix or ref $prefix eq 'Regexp' and "$prefix" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
         my @matcher;
         foreach my $source (@source) {
             my $name    = shift $source;
@@ -77,7 +77,7 @@ sub _create_stacker {
             my $priority = ( $prefix =~ tr{/}{/} ) << 2;
 
             ### assert: "$pattern" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
-            if ( ref $pattern eq q{} ) {
+            if ( not ref $pattern ) {
                 $priority += 2;
                 $pattern = qr{\A$prefix\Q$pattern\E\z}p;
             }
@@ -116,9 +116,6 @@ sub _create_stacker {
     };
 }
 
-sub prefix {
-    my $self = shift;
-    return $self->{prefix};
-}
+sub prefix { return shift->{prefix}; }
 
 1;

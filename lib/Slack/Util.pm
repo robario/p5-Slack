@@ -17,7 +17,6 @@ BEGIN {
 }
 
 BEGIN {
-    ## no critic qw(Variables::ProtectPrivateVars)
     no warnings qw(redefine);    ## no critic qw(TestingAndDebugging::ProhibitNoWarnings)
 
     my $patch_for = sub {
@@ -44,6 +43,7 @@ BEGIN {
     $patch_for->( 'Smart::Comments' => '1.0.4' );
 
     # define human-readable dump
+    ## no critic qw(Variables::ProtectPrivateVars)
     my $dd_dump = \&Data::Dumper::_dump;
     my $hr_dump = sub {
         my @args = @_;

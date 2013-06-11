@@ -44,7 +44,7 @@ sub prepare_app {
         }
 
         my $appname = ref $self;
-        ( my $prefix = $package ) =~ s/\A\Q$appname\E:://;
+        my $prefix  = $package =~ s/\A\Q$appname\E:://r;
         $prefix = join q{/}, map { lc s/(?<=.)\K([[:upper:]])/-$1/gr } split /::/, $prefix;
         $prefix = q{/} . $prefix . q{/};
         my $controller = $package->new( prefix => $prefix );

@@ -8,7 +8,6 @@ use version;
 use Carp qw(carp);
 use Data::Dumper;
 use Encode qw(find_encoding);
-use Time::Piece;
 
 BEGIN {
     # enable Smart::Comments for ownself
@@ -29,12 +28,14 @@ BEGIN {
     };
 
     # Time::Piece encoding fix
-    $patch_for->( 'Time::Piece' => '1.20_01' );
-    my $strftime = \&Time::Piece::strftime;
-    *Time::Piece::strftime = sub {
-        state $encoder = find_encoding('UTF-8');
-        return $encoder->decode( $strftime->(@_) );
-    };
+    if ( eval { require Time::Piece; } ) {
+        $patch_for->( 'Time::Piece' => '1.20_01' );
+        my $strftime = \&Time::Piece::strftime;
+        *Time::Piece::strftime = sub {
+            state $encoder = find_encoding('UTF-8');
+            return $encoder->decode( $strftime->(@_) );
+        };
+    }
 
     # Smart::Comments enhancer
     if ( not $INC{'Smart/Comments.pm'} ) {

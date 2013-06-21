@@ -102,7 +102,7 @@ BEGIN {
     *Smart::Comments::_Dump = sub {
         binmode STDERR => ':encoding(UTF-8)';
         local *Data::Dumper::Dump = $hr_dumpperl;
-        $sc_dump->(@_);
+        $sc_dump->( @_, nonl => 1 );
         binmode STDERR => ':pop';
     };
 }

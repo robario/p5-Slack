@@ -63,8 +63,11 @@ action default => qr/(.+)/ => sub {
 package MyApp::Web::Hello::World;
 use Slack qw(Controller);
 
-action index => q{} => sub {
-    res->body('Howdy, World!');
+action index => q{} => {
+    GET => sub {
+        res->body('Howdy, World!');
+    },
+    POST => sub { },
 };
 
 1;
@@ -82,7 +85,7 @@ my $app = MyApp::Web->new;
 
 package T;
 use FindBin qw($Bin);
-use HTTP::Request::Common qw(GET POST);
+use HTTP::Request::Common qw(GET POST DELETE);
 use HTTP::Status qw(:constants);
 use Plack::Test qw(test_psgi);
 use Test::More;
@@ -95,7 +98,10 @@ sub client {
     is( $res->content, 'RootExample->index', 'index' );    # '/' = '/' + ''
 
     $res = $cb->( POST q{/} );
-    is( $res->code, HTTP_METHOD_NOT_ALLOWED, 'invalid request method' );
+    is( $res->code, HTTP_METHOD_NOT_ALLOWED, 'not allowed request method' );
+
+    $res = $cb->( DELETE q{/} );
+    is( $res->code, HTTP_NOT_IMPLEMENTED, 'not implemented request method' );
 
     $res = $cb->( GET '/hello' );
     is( $res->code, HTTP_NOT_FOUND, 'without trailing-slash' );    # '/hello' = '/' + 'hello'

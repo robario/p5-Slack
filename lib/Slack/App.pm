@@ -30,6 +30,8 @@ sub new {
     );
 }
 
+my %implement;
+
 sub prepare_app {
     my $self = shift;
 
@@ -58,6 +60,11 @@ sub prepare_app {
         my $controller = $package->new;
         push @action, $controller->action;
         push @view,   $controller->view;
+        foreach my $matcher ( @action, @view ) {
+            foreach my $method ( keys $matcher->code ) {
+                $implement{$method} = 1;
+            }
+        }
     }
     {
         use sort qw(stable);
@@ -79,6 +86,12 @@ sub call {
         req => Slack::Request->new($env),
         res => Slack::Response->new(0),
     );
+
+    # urn:ietf:rfc:2616#10.5.2 The server does not support the functionality required to fulfill the request
+    if ( not exists $implement{ $c->req->method } ) {
+        $c->res->status(HTTP_NOT_IMPLEMENTED);
+        return $c->res->finalize;
+    }
 
     my $path = $c->req->path;
 

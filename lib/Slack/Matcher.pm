@@ -9,7 +9,6 @@ use Class::Struct (
     extension  => q{$},
     name       => q{$},
     pattern    => q{$},
-    priority   => q{$},
 );
 
 1;

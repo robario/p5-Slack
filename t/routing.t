@@ -45,12 +45,12 @@ action index => q{} => sub {
     res->body('Hello->index');
 };
 
-action name => qr{(?<name>[^/]+)} => sub {
-    res->body( sprintf 'Hello, %s!', req->args->{name} );
-};
-
 action world => sub {
     res->body('hello, world');
+};
+
+action name => qr{(?<name>[^/]+)} => sub {
+    res->body( sprintf 'Hello, %s!', req->args->{name} );
 };
 
 action default => qr/(.+)/ => sub {

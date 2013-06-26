@@ -16,7 +16,7 @@ use Slack::Response;
 use Slack::Util qw(to_ref);
 
 sub _by_priority {
-    return -( $a->priority <=> $b->priority );
+    return -( $a->controller->prefix =~ tr[/][] <=> $b->controller->prefix =~ tr[/][] );
 }
 
 sub new {

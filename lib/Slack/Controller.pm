@@ -8,7 +8,7 @@ use Encode qw(find_encoding);
 use English qw(-no_match_vars);
 use Filter::Simple;
 use Slack::Matcher;
-use Slack::Util qw(new);
+use Slack::Util;
 
 FILTER_ONLY code => sub {
     state $keyword_pattern = join q{|}, qw(c req res);
@@ -55,9 +55,9 @@ sub import {
 sub _create_stacker {
     my @source;
     return sub {
-        my ($self) = @_;
+        my ($class) = @_;
 
-        if ( not $self->isa(__PACKAGE__) ) {
+        if ( not $class->isa(__PACKAGE__) ) {
             if ( @_ == 2 ) {
                 splice @_, 1, 0, $_[0];
             }
@@ -67,7 +67,7 @@ sub _create_stacker {
         }
 
         # reconstruct matchers
-        my $prefix = $self->prefix;
+        my $prefix = $class->prefix;
         ### assert: ref $prefix eq 'Regexp' or not ref $prefix and $prefix =~ qr{\A/} and $prefix =~ qr{/\z}
         ### assert: not ref $prefix or ref $prefix eq 'Regexp' and "$prefix" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
         my @matcher;
@@ -101,7 +101,7 @@ sub _create_stacker {
             push @matcher,
               Slack::Matcher->new(
                 code       => $code,
-                controller => $self,
+                controller => $class,
                 extension  => $extension,
                 name       => $name,
                 pattern    => $pattern,

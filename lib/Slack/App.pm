@@ -42,7 +42,7 @@ sub prepare_app {
     foreach my $package ( Module::Pluggable::Object->new( search_path => [ ref $self ] )->plugins ) {
 
         # load controller
-        if ( not $package->can('new') ) {
+        if ( not $package->isa('Slack::Controller') ) {
             load $package;
         }
 
@@ -58,9 +58,8 @@ sub prepare_app {
         }
 
         # collect matchers
-        my $controller = $package->new;
-        push @action, $controller->action;
-        push @view,   $controller->view;
+        push @action, $package->action;
+        push @view,   $package->view;
         foreach my $matcher ( @action, @view ) {
             foreach my $method ( keys $matcher->code ) {
                 $implement{$method} = 1;

@@ -56,28 +56,28 @@ sub html {
     };
 }
 
-view mobile => { extension => qr/mobile/ } => html( WRAPPER => 'wrapper.mobile.tt' );
+view mobile => { q{.} => qr/mobile/ } => html( WRAPPER => 'wrapper.mobile.tt' );
 
-view html => { extension => qr/html?/ } => html;
+view html => { q{.} => qr/html?/ } => html;
 
 view json => 'empty.json' => sub {
     res->body('{}');
 };
 
-view json => { extension => 'json' } => sub {
+view json => { q{.} => 'json' } => sub {
     state $json = JSON::PP->new->utf8;
     res->body( $json->encode( res->stash ) );
 };
 
 view 'never called' => qr/.*[.]json/ => sub {
-    croak q{This must not be called because the priority is lower than "extension=>'json'".};
+    croak q{This must not be called because the priority is lower than "q{.}=>'json'".};
 };
 
-view plain => { extension => 'txt', q{/} => 'foo' } => sub {
+view plain => { q{.} => 'txt', q{/} => 'foo' } => sub {
     res->body( res->stash->{name} );
 };
 
-view unknown => { extension => qr/.*/ } => sub {
+view unknown => { q{.} => qr/.*/ } => sub {
     croak 'This extension is not supported.';
 };
 
@@ -86,7 +86,7 @@ view default => qr/.*/ => html;
 package MyApp::Baz;
 use Slack qw(Controller);
 
-view 'json override' => { extension => 'json' } => sub {
+view 'json override' => { q{.} => 'json' } => sub {
     state $json = JSON::PP->new->utf8->pretty;
     res->body( $json->encode( res->stash ) );
 };

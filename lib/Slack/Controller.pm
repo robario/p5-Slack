@@ -77,6 +77,10 @@ sub actions {
             $clause = { q{/} => $clause };
         }
 
+        if ( exists $clause->{q{extension}} ) {
+            warnings::warnif( deprecated => 'clause parameter "extension" is deprecated; use "." instead' );
+            $clause->{q{.}} = delete $clause->{q{extension}};
+        }
         if ( not exists $clause->{PATH_INFO} ) {
             #### Generate PATH_INFO clause automatically...
             my $path = delete $clause->{q{/}};
@@ -89,8 +93,8 @@ sub actions {
             else {
                 $path = q{.*};
             }
-            if ( exists $clause->{extension} ) {
-                $path .= '[.]' . $clause->{extension};
+            if ( exists $clause->{q{.}} ) {
+                $path .= '[.]' . $clause->{q{.}};
             }
             $clause->{PATH_INFO} = qr{\A$prefix$path\z}p;
         }
@@ -101,7 +105,7 @@ sub actions {
             ### assert: ref $clause->{$key} eq 'Regexp'
         }
         ### assert: not exists $clause->{q{/}}
-        # $clause->{extension} will be removed by Slack::App
+        # $clause->{q{.}} will be removed by Slack::App
 
         if ( ref $code eq 'CODE' ) {
             $code = { GET => $code };

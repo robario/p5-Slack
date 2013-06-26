@@ -63,8 +63,8 @@ sub prepare_app {
                 $implement{$method} = 1;
             }
 
-            if ( exists $action->clause->{extension} ) {
-                push @strip, delete $action->clause->{extension};
+            if ( exists $action->clause->{q{.}} ) {
+                push @strip, delete $action->clause->{q{.}};
             }
             push @actions, $action;
         }

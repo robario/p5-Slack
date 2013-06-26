@@ -43,12 +43,11 @@ FILTER_ONLY code => sub {
 };
 
 sub import {
-    my $class = shift;
     ### assert: caller eq 'Slack'
     my $caller = caller 1;
     foreach my $type (qw(view action)) {
         no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
-        *{ $caller . q{::} . $type } = $class->_create_stacker();
+        *{ $caller . q{::} . $type } = __PACKAGE__->_create_stacker();
     }
     return;
 }
@@ -59,7 +58,10 @@ sub _create_stacker {
         my ($self) = @_;
 
         if ( not $self->isa(__PACKAGE__) ) {
-            ### assert: @_ == 2 or @_ == 3
+            if ( @_ == 2 ) {
+                splice @_, 1, 0, $_[0];
+            }
+            ### assert: @_ == 3
             push @source, \@_;
             return;
         }
@@ -70,9 +72,7 @@ sub _create_stacker {
         ### assert: not ref $prefix or ref $prefix eq 'Regexp' and "$prefix" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
         my @matcher;
         foreach my $source (@source) {
-            my $name    = shift $source;
-            my $pattern = @{$source} == 1 ? $name : shift $source;
-            my $code    = shift $source;
+            my ( $name, $pattern, $code ) = @{$source};
             my $extension;
 
             ### assert: "$pattern" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /

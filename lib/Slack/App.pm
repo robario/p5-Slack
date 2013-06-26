@@ -15,10 +15,6 @@ use Slack::Request;
 use Slack::Response;
 use Slack::Util qw(to_ref);
 
-sub _by_priority {
-    return -( $a->controller->prefix =~ tr[/][] <=> $b->controller->prefix =~ tr[/][] );
-}
-
 sub new {
     my ( $class, @args ) = @_;
     return Slack::Util::new(
@@ -39,17 +35,20 @@ sub prepare_app {
     ### config: $self->config
 
     ### Setup Controller...
+    my $package_base_re = ref $self;
+    $package_base_re = quotemeta $package_base_re . q{::};
     my @action;
     my @view;
     foreach my $package ( Module::Pluggable::Object->new( search_path => [ ref $self ] )->plugins ) {
+
+        # load controller
         if ( not $package->can('new') ) {
             load $package;
         }
 
         # define prefix
         if ( not $package->can('prefix') ) {
-            my $appname = ref $self;
-            my $prefix  = $package =~ s/\A\Q$appname\E:://r;
+            my $prefix = $package =~ s/\A$package_base_re//r;
             $prefix = join q{/}, map { lc s/(?<=.)\K([[:upper:]])/-$1/gr } split /::/, $prefix;
             $prefix = q{/} . $prefix . q{/};
             no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
@@ -57,6 +56,8 @@ sub prepare_app {
                 return $prefix;
             };
         }
+
+        # collect matchers
         my $controller = $package->new;
         push @action, $controller->action;
         push @view,   $controller->view;
@@ -68,9 +69,11 @@ sub prepare_app {
     }
     {
         use sort qw(stable);
-
-        push $self->action, sort _by_priority @action;
-        push $self->view,   sort _by_priority @view;
+        my $by_depth = sub {
+            return -( $a->controller->prefix =~ tr[/][] <=> $b->controller->prefix =~ tr[/][] );
+        };
+        push $self->action, sort $by_depth @action;
+        push $self->view,   sort $by_depth @view;
     }
     ### action: rows => [ [qw(Controller Name Pattern)], map { [ ref $_->controller, $_->name, $_->pattern ] } @{ $self->action } ], header_row => 1
     ### view: rows => [ [qw(Controller Name Pattern)], map { [ ref $_->controller, $_->name, $_->pattern ] } @{ $self->view } ], header_row => 1
@@ -121,7 +124,7 @@ sub call {
         last;
     }
 
-    # urn:ietf:rfc:2616#9.4: The HEAD method is identical to GET
+    # urn:ietf:rfc:2616#9.4 The HEAD method is identical to GET
     my $method = $c->req->method eq 'HEAD' ? 'GET' : $c->req->method;
 
     if ( $c->action ) {
@@ -139,7 +142,7 @@ sub call {
         }
     }
     else {
-        # urn:ietf:rfc:2616#10.4.5: The server has not found anything matching the Request-URI
+        # urn:ietf:rfc:2616#10.4.5 The server has not found anything matching the Request-URI
         $c->res->status(HTTP_NOT_FOUND);
     }
 
@@ -156,14 +159,14 @@ sub call {
 
     #### Fixup response...
 
-    # urn:ietf:rfc:2616#10.4: the server SHOULD include an entity containing an explanation of the error situation
+    # urn:ietf:rfc:2616#10.4 the server SHOULD include an entity containing an explanation of the error situation
     if ( not defined $c->res->body and is_client_error( $c->res->status ) ) {
         $c->res->content_type('text/plain; charset=UTF-8');
         $c->res->body( status_message( $c->res->status ) );
     }
 
-    # urn:ietf:rfc:2616#9.4: the server MUST NOT return a message-body in the response
-    if ( $c->req->method eq 'HEAD' ) {
+    # urn:ietf:rfc:2616#9.4 the server MUST NOT return a message-body in the response
+    if ( $c->req->method eq 'HEAD' ) {    # Plack::Middleware::Head
         $c->res->body(undef);
     }
 

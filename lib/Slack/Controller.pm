@@ -45,70 +45,81 @@ FILTER_ONLY code => sub {
 sub import {
     ### assert: caller eq 'Slack'
     my $caller = caller 1;
-    foreach my $type (qw(view action)) {
-        no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
-        *{ $caller . q{::} . $type } = __PACKAGE__->_create_stacker();
-    }
-    return;
-}
-
-sub _create_stacker {
-    my @source;
-    return sub {
-        my ($class) = @_;
-
-        if ( not $class->isa(__PACKAGE__) ) {
+    no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+    *{ $caller . '::actions' } = [];
+    foreach my $type (qw(prep action view)) {
+        *{ $caller . q{::} . $type } = sub {
             if ( @_ == 2 ) {
                 splice @_, 1, 0, $_[0];
             }
             ### assert: @_ == 3
-            push @source, \@_;
-            return;
-        }
+            push @{ $caller . '::actions' }, [ $type, @_ ];
+        };
+    }
+    return;
+}
 
-        # reconstruct matchers
-        my $prefix = $class->prefix;
-        ### assert: ref $prefix eq 'Regexp' or not ref $prefix and $prefix =~ qr{\A/} and $prefix =~ qr{/\z}
-        ### assert: not ref $prefix or ref $prefix eq 'Regexp' and "$prefix" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
-        my @matcher;
-        foreach my $source (@source) {
-            my ( $name, $pattern, $code ) = @{$source};
-            my $extension;
+sub actions {
+    my $class = shift;
 
-            ### assert: "$pattern" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
-            if ( not ref $pattern ) {
-                $pattern = qr{\A$prefix\Q$pattern\E\z}p;
-            }
-            elsif ( ref $pattern eq 'HASH' ) {    # XXX: view only
-                ### assert: length $pattern->{extension}
-                ### assert: q{.} ne substr $pattern->{extension}, 0, 1
-                $extension = $pattern->{extension};
-                $pattern   = qr{\A$prefix.*[.]$extension\z}p;
-            }
-            elsif ( ref $pattern eq 'Regexp' ) {
-                $pattern = qr{\A$prefix$pattern\z}p;
-            }
-            else { ... }
-
-            if ( ref $code eq 'CODE' ) {
-                $code = { GET => $code };
-            }
-            elsif ( ref $code eq 'HASH' ) {
-                ### assert: not exists $code->{HEAD}
-            }
-            else { ... }
-
-            push @matcher,
-              Slack::Matcher->new(
-                code       => $code,
-                controller => $class,
-                extension  => $extension,
-                name       => $name,
-                pattern    => $pattern,
-              );
-        }
-        return @matcher;
+    my $prefix = $class->prefix;
+    ### assert: ref $prefix eq 'Regexp' or not ref $prefix and $prefix =~ qr{\A/} and $prefix =~ qr{/\z}
+    ### assert: not ref $prefix or ref $prefix eq 'Regexp' and "$prefix" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
+    my $actions = do {
+        no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+        *{ $class . '::actions' }{ARRAY};
     };
+    foreach my $action ( @{$actions} ) {
+        my ( $type, $name, $clause, $code ) = @{$action};
+
+        if ( ref $clause ne 'HASH' ) {
+            ### assert: not ref $clause or ref $clause eq 'Regexp' and "$clause" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
+            $clause = { q{/} => $clause };
+        }
+
+        if ( not exists $clause->{PATH_INFO} ) {
+            #### Generate PATH_INFO clause automatically...
+            my $path = delete $clause->{q{/}};
+            if ( defined $path ) {
+                ### assert: not ref $path or ref $path eq 'Regexp'
+                if ( not ref $path ) {
+                    $path = quotemeta $path;
+                }
+            }
+            else {
+                $path = q{.*};
+            }
+            if ( exists $clause->{extension} ) {
+                $path .= '[.]' . $clause->{extension};
+            }
+            $clause->{PATH_INFO} = qr{\A$prefix$path\z}p;
+        }
+        foreach my $key ( keys $clause ) {
+            if ( not ref $clause->{$key} ) {
+                $clause->{$key} = qr/\A$clause->{$key}\z/p;
+            }
+            ### assert: ref $clause->{$key} eq 'Regexp'
+        }
+        ### assert: not exists $clause->{q{/}}
+        # $clause->{extension} will be removed by Slack::App
+
+        if ( ref $code eq 'CODE' ) {
+            $code = { GET => $code };
+        }
+        elsif ( ref $code eq 'HASH' ) {
+            ### assert: not exists $code->{HEAD}
+        }
+        else { ... }
+
+        $action = Slack::Matcher->new(
+            clause     => $clause,
+            code       => $code,
+            controller => $class,
+            name       => $name,
+            type       => $type,
+        );
+    }
+    return @{$actions};
 }
 
 1;

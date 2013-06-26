@@ -6,7 +6,6 @@ use encoding::warnings;
 use Class::Struct (
     app    => 'Slack::App',
     action => 'Slack::Matcher',
-    view   => 'Slack::Matcher',
     req    => 'Slack::Request',
     res    => 'Slack::Response',
 );

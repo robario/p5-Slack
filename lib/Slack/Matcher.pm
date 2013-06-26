@@ -4,11 +4,11 @@ use warnings;
 use encoding::warnings;
 
 use Class::Struct (
+    clause     => q{%},
     code       => q{%},
     controller => 'Slack::Controller',
-    extension  => q{$},
     name       => q{$},
-    pattern    => q{$},
+    type       => q{$},
 );
 
 1;

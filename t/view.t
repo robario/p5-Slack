@@ -73,6 +73,10 @@ view 'never called' => qr/.*[.]json/ => sub {
     croak q{This must not be called because the priority is lower than "extension=>'json'".};
 };
 
+view plain => { extension => 'txt', q{/} => 'foo' } => sub {
+    res->body( res->stash->{name} );
+};
+
 view unknown => { extension => qr/.*/ } => sub {
     croak 'This extension is not supported.';
 };
@@ -149,6 +153,12 @@ sub client {
 
     $res = $cb->( GET '/baz/foo.json' );
     is( $res->content, qq{{\n   "name" : "baz/foo"\n}\n}, 'override view' );
+
+    $res = $cb->( GET '/foo.txt' );
+    is( $res->content, 'foo', 'plain view matches foo.txt only' );
+
+    $res = $cb->( GET '/bar.txt' );
+    like( $res->content, qr/\A\QThis extension is not supported.\E/, 'plain view does not matches except /foo.txt' );
 
     return;
 }

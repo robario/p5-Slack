@@ -7,7 +7,7 @@ use re qw(/msx);
 use Encode qw(find_encoding);
 use English qw(-no_match_vars);
 use Filter::Simple;
-use Slack::Matcher;
+use Slack::Action;
 use Slack::Util;
 
 FILTER_ONLY code => sub {
@@ -115,7 +115,7 @@ sub actions {
         }
         else { ... }
 
-        $action = Slack::Matcher->new(
+        $action = Slack::Action->new(
             clause     => $clause,
             code       => $code,
             controller => $class,

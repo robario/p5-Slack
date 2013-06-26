@@ -1,4 +1,4 @@
-package Slack::Matcher v0.1.0;
+package Slack::Action v0.0.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;

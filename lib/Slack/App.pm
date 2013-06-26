@@ -17,6 +17,9 @@ use Slack::Util qw(to_ref);
 
 sub new {
     my ( $class, @args ) = @_;
+    if (@args) {
+        warnings::warnif( deprecated => '"config" of app is deprecated; please implement your own' );
+    }
     return Slack::Util::new(
         $class => {
             config  => to_ref(@args),

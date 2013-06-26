@@ -27,6 +27,7 @@ sub new {
 }
 
 my %implement;
+my $strip;
 
 sub prepare_app {
     my $self = shift;
@@ -39,6 +40,7 @@ sub prepare_app {
     $package_base_re = quotemeta $package_base_re . q{::};
     my @action;
     my @view;
+    my @strip;
     foreach my $package ( Module::Pluggable::Object->new( search_path => [ ref $self ] )->plugins ) {
 
         # load controller
@@ -65,7 +67,14 @@ sub prepare_app {
                 $implement{$method} = 1;
             }
         }
+        foreach my $matcher (@view) {
+            if ( defined $matcher->extension ) {
+                push @strip, $matcher->extension;
+            }
+        }
     }
+    $strip = join q{|}, @strip;
+
     {
         use sort qw(stable);
         my $by_depth = sub {
@@ -95,33 +104,37 @@ sub call {
         return $c->res->finalize;
     }
 
-    my $path = $c->req->path;
-
+    my $path_info = $c->req->env->{PATH_INFO};
     foreach my $matcher ( @{ $self->view } ) {
-        #### view try matching: $path . ' =~ ' . $matcher->pattern
-        if ( not $path =~ $matcher->pattern ) {
+        #### view try matching: $path_info . ' =~ ' . $matcher->pattern
+        if ( not $c->req->path_info =~ $matcher->pattern ) {
             next;
         }
-        #### view matched: rows => [ [ Controller => ref $matcher->controller ], [ Name => $matcher->name ], [ Pattern => $matcher->pattern ], [ Path => $path ], [ q{$} . '{^MATCH}' => ${^MATCH} ] ]
+        #### view matched: rows => [ [ Controller => ref $matcher->controller ], [ Name => $matcher->name ], [ Pattern => $matcher->pattern ], [ Path => $path_info ], [ q{$} . '{^MATCH}' => ${^MATCH} ] ]
         $c->view($matcher);
-        if ( length $c->view->extension ) {
-            $path =~ s/[.]@{[$c->view->extension]}\z//;
-        }
         last;
+    }
+    if ($strip) {
+        $c->req->env->{PATH_INFO} =~ s/(?:[.](?:$strip))+\z//;
     }
 
     foreach my $matcher ( @{ $self->action } ) {
-        #### action try matching: $path . ' =~ ' . $matcher->pattern
-        if ( not $path =~ $matcher->pattern ) {
+        #### action try matching: $path_info . ' =~ ' . $matcher->pattern
+        if ( not $c->req->path_info =~ $matcher->pattern ) {
             next;
         }
         $c->req->args( {%LAST_PAREN_MATCH} );
         $c->req->argv(
-            [ map { substr $path, $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] - $LAST_MATCH_START[$_] } 1 .. $#LAST_MATCH_START ] );
-        #### action matched: rows => [ [ Controller => ref $matcher->controller ], [ Name => $matcher->name ], [ Pattern => $matcher->pattern ], [ Path => $path ], [ q{$} . '{^MATCH}' => ${^MATCH} ], map { [ q{$} . $_, $c->req->argv->[ $_ - 1 ] ] } 1 .. @{ $c->req->argv } ]
+            [
+                map { substr $path_info, $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] - $LAST_MATCH_START[$_] }
+                  1 .. $#LAST_MATCH_START
+            ]
+        );
+        #### action matched: rows => [ [ Controller => ref $matcher->controller ], [ Name => $matcher->name ], [ Pattern => $matcher->pattern ], [ Path => $path_info ], [ q{$} . '{^MATCH}' => ${^MATCH} ], map { [ q{$} . $_, $c->req->argv->[ $_ - 1 ] ] } 1 .. @{ $c->req->argv } ]
         $c->action($matcher);
         last;
     }
+    $c->req->env->{PATH_INFO} = $path_info;
 
     # urn:ietf:rfc:2616#9.4 The HEAD method is identical to GET
     my $method = $c->req->method eq 'HEAD' ? 'GET' : $c->req->method;

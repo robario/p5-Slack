@@ -44,11 +44,18 @@ sub prepare_app {
             load $package;
         }
 
-        my $appname = ref $self;
-        my $prefix  = $package =~ s/\A\Q$appname\E:://r;
-        $prefix = join q{/}, map { lc s/(?<=.)\K([[:upper:]])/-$1/gr } split /::/, $prefix;
-        $prefix = q{/} . $prefix . q{/};
-        my $controller = $package->new( prefix => $prefix );
+        # define prefix
+        if ( not $package->can('prefix') ) {
+            my $appname = ref $self;
+            my $prefix  = $package =~ s/\A\Q$appname\E:://r;
+            $prefix = join q{/}, map { lc s/(?<=.)\K([[:upper:]])/-$1/gr } split /::/, $prefix;
+            $prefix = q{/} . $prefix . q{/};
+            no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+            *{ $package . '::prefix' } = sub {
+                return $prefix;
+            };
+        }
+        my $controller = $package->new;
         push @action, $controller->action;
         push @view,   $controller->view;
     }

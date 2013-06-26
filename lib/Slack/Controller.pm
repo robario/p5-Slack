@@ -116,6 +116,4 @@ sub _create_stacker {
     };
 }
 
-sub prefix { return shift->{prefix}; }
-
 1;

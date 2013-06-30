@@ -72,6 +72,7 @@ sub prepare_app {
             push @actions, $action;
         }
     }
+    ### assert: not grep {$_ eq q{.} or $_ eq q{/}} map {keys $_->clause} @actions
     $strip = join q{|}, @strip;
 
     # sort and assort actions

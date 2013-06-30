@@ -99,13 +99,18 @@ sub actions {
             $clause->{PATH_INFO} = qr{\A$prefix$path\z}p;
         }
         foreach my $key ( keys $clause ) {
+
+            # $clause->{q{.}} will be removed by Slack::App
+            if ( $key eq q{.} ) {
+                next;
+            }
+
+            # fixed string should matches from \A to \z
             if ( not ref $clause->{$key} ) {
                 $clause->{$key} = qr/\A$clause->{$key}\z/p;
             }
             ### assert: ref $clause->{$key} eq 'Regexp'
         }
-        ### assert: not exists $clause->{q{/}}
-        # $clause->{q{.}} will be removed by Slack::App
 
         if ( ref $code eq 'CODE' ) {
             $code = { GET => $code };

@@ -11,12 +11,7 @@ use re qw(/msx);
 ## no critic qw(Modules::ProhibitMultiplePackages)
 
 package MyApp::Web;
-use Slack qw(App);
-
-package MyApp::Web::Root;
-use Slack qw(Controller);
-
-sub prefix { return q{/}; }
+use Slack qw(App Controller);
 
 prep swallow_begin => {} => sub {
     push @{ res->stash->{callstack} }, 'swallow_begin';

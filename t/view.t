@@ -10,19 +10,17 @@ use re qw(/msx);
 
 ## no critic qw(Modules::ProhibitMultiplePackages)
 
-package MyApp::Root;
+package MyApp;
 use Carp qw(croak);
 use Encode qw(find_encoding);
 use FindBin qw($Bin);
 use JSON::PP;
 use Module::Loaded qw(is_loaded);
-use Slack qw(Controller);
+use Slack qw(App Controller);
 
 BEGIN {
     eval { require Template; Template->import; } or 'do nothing';
 }
-
-sub prefix { return q{/}; }
 
 action default => qr{(?<name>.+)} => sub {
     res->stash->{name} = req->args->{name};
@@ -90,9 +88,6 @@ view 'json override' => { q{.} => 'json' } => sub {
     state $json = JSON::PP->new->utf8->pretty;
     res->body( $json->encode( res->stash ) );
 };
-
-package MyApp;
-use Slack qw(App);
 
 package T;
 use autodie;

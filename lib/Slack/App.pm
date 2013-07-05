@@ -9,7 +9,7 @@ use English qw(-no_match_vars);
 use HTTP::Status qw(:constants status_message is_client_error);
 use Module::Load qw(load);
 use Module::Pluggable::Object;
-use Plack::Util::Accessor qw(config actions);
+use Plack::Util::Accessor qw(config);
 use Slack::Context;
 use Slack::Request;
 use Slack::Response;
@@ -20,12 +20,7 @@ sub new {
     if (@args) {
         warnings::warnif( deprecated => '"config" of app is deprecated; please implement your own' );
     }
-    return Slack::Util::new(
-        $class => {
-            config  => to_ref(@args),
-            actions => {},
-        }
-    );
+    return Slack::Util::new( $class => { config => to_ref(@args) } );
 }
 
 my %implement;
@@ -38,22 +33,27 @@ sub prepare_app {
     ### config: $self->config
 
     ### Setup Controller...
-    my $package_base_re = ref $self;
-    $package_base_re = quotemeta $package_base_re . q{::};
+    my $class = ref $self;
     my @actions;
     my @strip;
-    foreach my $package ( Module::Pluggable::Object->new( search_path => [ ref $self ] )->plugins ) {
+    foreach my $package ( $class, Module::Pluggable::Object->new( search_path => [$class] )->plugins ) {
 
         # load controller
         if ( not $package->isa('Slack::Controller') ) {
+            if ( $package->isa('Slack::App') ) {
+                next;
+            }
             load $package;
         }
 
         # define prefix
         if ( not $package->can('prefix') ) {
-            my $prefix = $package =~ s/\A$package_base_re//r;
-            $prefix = join q{/}, map { lc s/(?<=.)\K([[:upper:]])/-$1/gr } split /::/, $prefix;
-            $prefix = q{/} . $prefix . q{/};
+            my $prefix = $package =~ s/\A\Q$class\E//r;
+            if ($prefix) {
+                $prefix = join q{/}, map { lc s/(?<=.)\K([[:upper:]])/-$1/gr } split /::/, $prefix;
+            }
+            $prefix = $prefix . q{/};
+
             no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
             *{ $package . '::prefix' } = sub {
                 return $prefix;
@@ -81,13 +81,13 @@ sub prepare_app {
         my $by_depth = sub {
             return -( $a->controller->prefix =~ tr[/][] <=> $b->controller->prefix =~ tr[/][] );
         };
-        $self->actions->{prep} = [ sort { -$by_depth->() } grep { $_->type eq 'prep' } @actions ];    # breadth first order
-        $self->actions->{action} = [ sort $by_depth grep { $_->type eq 'action' } @actions ];         # depth first order
-        $self->actions->{view}   = [ sort $by_depth grep { $_->type eq 'view' } @actions ];           # ditto
+        $self->{actions}->{prep} = [ sort { -$by_depth->() } grep { $_->type eq 'prep' } @actions ];    # breadth first order
+        $self->{actions}->{action} = [ sort $by_depth grep { $_->type eq 'action' } @actions ];         # depth first order
+        $self->{actions}->{view}   = [ sort $by_depth grep { $_->type eq 'view' } @actions ];           # ditto
     }
-    ### prep: rows => [ [qw(Controller Name Clause-Key Clause-Value)], map { my $c = $_; my @c = map { [ q{}, q{}, $_, $c->clause->{$_} ] } keys $c->clause; @{ $c[0] }[qw(0 1)] = ( $c->controller, $c->name ); @c } @{ $self->actions->{prep} } ], header_row => 1
-    ### action: rows => [ [qw(Controller Name Clause-Key Clause-Value)], map { my $c = $_; my @c = map { [ q{}, q{}, $_, $c->clause->{$_} ] } keys $c->clause; @{ $c[0] }[qw(0 1)] = ( $c->controller, $c->name ); @c } @{ $self->actions->{action} } ], header_row => 1
-    ### view: rows => [ [qw(Controller Name Clause-Key Clause-Value)], map { my $c = $_; my @c = map { [ q{}, q{}, $_, $c->clause->{$_} ] } keys $c->clause; @{ $c[0] }[qw(0 1)] = ( $c->controller, $c->name ); @c } @{ $self->actions->{view} } ], header_row => 1
+    ### prep: rows => [ [qw(Controller Name Clause-Key Clause-Value)], map { my $c = $_; my @c = map { [ q{}, q{}, $_, $c->clause->{$_} ] } keys $c->clause; @{ $c[0] }[qw(0 1)] = ( $c->controller, $c->name ); @c } @{ $self->{actions}->{prep} } ], header_row => 1
+    ### action: rows => [ [qw(Controller Name Clause-Key Clause-Value)], map { my $c = $_; my @c = map { [ q{}, q{}, $_, $c->clause->{$_} ] } keys $c->clause; @{ $c[0] }[qw(0 1)] = ( $c->controller, $c->name ); @c } @{ $self->{actions}->{action} } ], header_row => 1
+    ### view: rows => [ [qw(Controller Name Clause-Key Clause-Value)], map { my $c = $_; my @c = map { [ q{}, q{}, $_, $c->clause->{$_} ] } keys $c->clause; @{ $c[0] }[qw(0 1)] = ( $c->controller, $c->name ); @c } @{ $self->{actions}->{view} } ], header_row => 1
 
     return;
 }
@@ -108,7 +108,7 @@ sub call {
     }
 
     # prep: call all the actions that match
-    foreach my $action ( @{ $self->actions->{prep} } ) {
+    foreach my $action ( @{ $self->{actions}->{prep} } ) {
         if ( _process_action( $c, $action ) ) {
             #### prep matched: $action->controller . '->' . $action->name
         }
@@ -119,7 +119,7 @@ sub call {
     if ($strip) {
         $c->req->env->{PATH_INFO} =~ s/(?:[.](?:$strip))+\z//;
     }
-    foreach my $action ( @{ $self->actions->{action} } ) {
+    foreach my $action ( @{ $self->{actions}->{action} } ) {
         if ( my $r = _process_action( $c, $action ) ) {
             #### action matched: $action->controller . '->' . $action->name
             $c->action($action);
@@ -143,7 +143,7 @@ sub call {
     }
 
     # view: call until body defined
-    foreach my $action ( @{ $self->actions->{view} } ) {
+    foreach my $action ( @{ $self->{actions}->{view} } ) {
         if ( defined $c->res->body ) {
             last;
         }

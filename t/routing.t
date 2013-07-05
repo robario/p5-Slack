@@ -21,15 +21,7 @@ BEGIN { mark_as_loaded('MyApp::Web'); }
 
 # lib/MyApp/Web.pm
 package MyApp::Web;
-use Slack qw(App);
-
-1;
-
-# lib/MyApp/Web/RootExample.pm
-package MyApp::Web::RootExample;
-use Slack qw(Controller);
-
-sub prefix { return q{/}; }    # prefix '/root-example/' is changed to '/'
+use Slack qw(App Controller);
 
 action index => q{} => sub {
     res->body('RootExample->index');

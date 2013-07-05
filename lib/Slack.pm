@@ -18,6 +18,13 @@ sub import {
         {
             no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
             push @{ $caller . '::ISA' }, $component;
+            if ( $component eq 'Slack::App' and not *{ $caller . '::import' }{CODE} ) {
+                *{ $caller . '::import' } = sub {
+
+                    # avoid calling Slack::Controller#import when $caller using multiple inheritance.
+                    # This hack is no good idea.
+                };
+            }
         }
     }
 

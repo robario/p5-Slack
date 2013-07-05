@@ -2,7 +2,7 @@
 eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
   if 0;
 
-package main v0.1.0;
+package main v0.2.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
@@ -19,24 +19,9 @@ BEGIN { mark_as_loaded('MyApp::Web'); }
 # Here is an example flattened.
 #
 
-# app.psgi
-package main;
-use MyApp::Web;
-my $app = MyApp::Web->new;
-
-1;
-
 # lib/MyApp/Web.pm
 package MyApp::Web;
-use Slack qw(App);
-
-1;
-
-# lib/MyApp/Web/RootExample.pm
-package MyApp::Web::RootExample;
-use Slack qw(Controller);
-
-sub prefix { return q{/}; }    # prefix '/root-example/' is changed to '/'
+use Slack qw(App Controller);
 
 action index => q{} => sub {
     res->body('RootExample->index');
@@ -52,12 +37,12 @@ action index => q{} => sub {
     res->body('Hello->index');
 };
 
-action name => qr{(?<name>[^/]+)} => sub {
-    res->body( sprintf 'Hello, %s!', req->args->{name} );
-};
-
 action world => sub {
     res->body('hello, world');
+};
+
+action name => qr{(?<name>[^/]+)} => sub {
+    res->body( sprintf 'Hello, %s!', req->args->{name} );
 };
 
 action default => qr/(.+)/ => sub {
@@ -70,9 +55,19 @@ action default => qr/(.+)/ => sub {
 package MyApp::Web::Hello::World;
 use Slack qw(Controller);
 
-action index => q{} => sub {
-    res->body('Howdy, World!');
+action index => q{} => {
+    GET => sub {
+        res->body('Howdy, World!');
+    },
+    POST => sub { },
 };
+
+1;
+
+# app.psgi
+package main;
+use MyApp::Web;
+my $app = MyApp::Web->new;
 
 1;
 
@@ -81,7 +76,8 @@ action index => q{} => sub {
 #
 
 package T;
-use HTTP::Request::Common qw(GET POST);
+use FindBin qw($Bin);
+use HTTP::Request::Common qw(GET POST DELETE);
 use HTTP::Status qw(:constants);
 use Plack::Test qw(test_psgi);
 use Test::More;
@@ -94,7 +90,10 @@ sub client {
     is( $res->content, 'RootExample->index', 'index' );    # '/' = '/' + ''
 
     $res = $cb->( POST q{/} );
-    is( $res->code, HTTP_METHOD_NOT_ALLOWED, 'invalid request method' );
+    is( $res->code, HTTP_METHOD_NOT_ALLOWED, 'not allowed request method' );
+
+    $res = $cb->( DELETE q{/} );
+    is( $res->code, HTTP_NOT_IMPLEMENTED, 'not implemented request method' );
 
     $res = $cb->( GET '/hello' );
     is( $res->code, HTTP_NOT_FOUND, 'without trailing-slash' );    # '/hello' = '/' + 'hello'

@@ -2,7 +2,7 @@
 eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
   if 0;
 
-package main v0.1.0;
+package main v0.2.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
@@ -10,19 +10,17 @@ use re qw(/msx);
 
 ## no critic qw(Modules::ProhibitMultiplePackages)
 
-package MyApp::Root;
+package MyApp;
 use Carp qw(croak);
 use Encode qw(find_encoding);
 use FindBin qw($Bin);
 use JSON::PP;
 use Module::Loaded qw(is_loaded);
-use Slack qw(Controller);
+use Slack qw(App Controller);
 
 BEGIN {
     eval { require Template; Template->import; } or 'do nothing';
 }
-
-sub prefix { return q{/}; }
 
 action default => qr{(?<name>.+)} => sub {
     res->stash->{name} = req->args->{name};
@@ -56,24 +54,28 @@ sub html {
     };
 }
 
-view mobile => { extension => qr/mobile/ } => html( WRAPPER => 'wrapper.mobile.tt' );
+view mobile => { q{.} => qr/mobile/ } => html( WRAPPER => 'wrapper.mobile.tt' );
 
-view html => { extension => qr/html?/ } => html;
+view html => { q{.} => qr/html?/ } => html;
 
 view json => 'empty.json' => sub {
     res->body('{}');
 };
 
-view json => { extension => 'json' } => sub {
+view json => { q{.} => 'json' } => sub {
     state $json = JSON::PP->new->utf8;
     res->body( $json->encode( res->stash ) );
 };
 
 view 'never called' => qr/.*[.]json/ => sub {
-    croak q{This must not be called because the priority is lower than "extension=>'json'".};
+    croak q{This must not be called because the priority is lower than "q{.}=>'json'".};
 };
 
-view unknown => { extension => qr/.*/ } => sub {
+view plain => { q{.} => 'txt', q{/} => 'foo' } => sub {
+    res->body( res->stash->{name} );
+};
+
+view unknown => { q{.} => qr/.*/ } => sub {
     croak 'This extension is not supported.';
 };
 
@@ -82,13 +84,10 @@ view default => qr/.*/ => html;
 package MyApp::Baz;
 use Slack qw(Controller);
 
-view 'json override' => { extension => 'json' } => sub {
+view 'json override' => { q{.} => 'json' } => sub {
     state $json = JSON::PP->new->utf8->pretty;
     res->body( $json->encode( res->stash ) );
 };
-
-package MyApp;
-use Slack qw(App);
 
 package T;
 use autodie;
@@ -149,6 +148,12 @@ sub client {
 
     $res = $cb->( GET '/baz/foo.json' );
     is( $res->content, qq{{\n   "name" : "baz/foo"\n}\n}, 'override view' );
+
+    $res = $cb->( GET '/foo.txt' );
+    is( $res->content, 'foo', 'plain view matches foo.txt only' );
+
+    $res = $cb->( GET '/bar.txt' );
+    like( $res->content, qr/\A\QThis extension is not supported.\E/, 'plain view does not matches except /foo.txt' );
 
     return;
 }

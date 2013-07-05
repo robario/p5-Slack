@@ -1,12 +1,11 @@
-package Slack::Context v0.1.0;
+package Slack::Context v0.2.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
 
 use Class::Struct (
     app    => 'Slack::App',
-    action => 'Slack::Matcher',
-    view   => 'Slack::Matcher',
+    action => 'Slack::Action',
     req    => 'Slack::Request',
     res    => 'Slack::Response',
 );

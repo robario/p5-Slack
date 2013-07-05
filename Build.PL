@@ -2,20 +2,36 @@
 eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
   if 0;
 
-package main v0.1.4;
+package main v0.2.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
 
 use Module::Build;
+use Module::CPANfile;
+
+sub specs2mb {
+    my $specs = shift;
+    return (
+        configure_requires => $specs->{configure}->{requires} // {},
+        build_requires     => $specs->{build}->{requires}     // {},
+        requires           => $specs->{runtime}->{requires}   // {},
+        test_requires      => $specs->{test}->{requires}      // {},
+        recommends => { map { %{ @{ $specs->{$_} }{qw(recommends suggests)} // {} } } keys $specs },
+        conflicts => { map { %{ $specs->{$_}->{conflicts} // {} } } keys $specs },
+    );
+}
+
+my $cpanfile = Module::CPANfile->load;
 
 Module::Build->subclass(
-    code => q{
-        sub ACTION_manifest_skip {
-            my $self = shift;
-            $self->SUPER::ACTION_manifest_skip(@_);
-            open my $fh, '>>', 'MANIFEST.SKIP' or croak $!;
-            print {$fh} <<'EOT';
+    code => <<'CODE',
+sub ACTION_manifest_skip {
+    my $self = shift;
+    $self->SUPER::ACTION_manifest_skip(@_);
+    use autodie;
+    open my $fh, '>>', 'MANIFEST.SKIP';
+    $fh->print(<<'EOT');
 
 # Addition
 \.ERR$
@@ -23,18 +39,14 @@ Module::Build->subclass(
 \.tdy$
 ^Slack\.ppd
 EOT
-            return;
-        }
-    },
+    $fh->close;
+    return;
+}
+CODE
   )->new(
     module_name => 'Slack',
-    requires    => {
-        'HTTP::Status' => 0,
-        'Plack'        => 0,
-    },
-    recommends => {
-        'Text::Table::Tiny' => 0,
-    },
+    specs2mb( $cpanfile->prereq_specs ),
+    auto_features  => { map { $_->identifier => { specs2mb( $_->prereqs->as_string_hash ) } } $cpanfile->features },
     add_to_cleanup => [
         qw(
           *.ERR

@@ -1,4 +1,4 @@
-package Slack::Util v0.1.1;
+package Slack::Util v0.2.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
@@ -8,7 +8,6 @@ use version;
 use Carp qw(carp);
 use Data::Dumper;
 use Encode qw(find_encoding);
-use Time::Piece;
 
 BEGIN {
     # enable Smart::Comments for ownself
@@ -18,7 +17,6 @@ BEGIN {
 }
 
 BEGIN {
-    ## no critic qw(Variables::ProtectPrivateVars)
     no warnings qw(redefine);    ## no critic qw(TestingAndDebugging::ProhibitNoWarnings)
 
     my $patch_for = sub {
@@ -29,12 +27,14 @@ BEGIN {
     };
 
     # Time::Piece encoding fix
-    $patch_for->( 'Time::Piece' => '1.20_01' );
-    my $strftime = \&Time::Piece::strftime;
-    *Time::Piece::strftime = sub {
-        state $encoder = find_encoding('UTF-8');
-        return $encoder->decode( $strftime->(@_) );
-    };
+    if ( eval { require Time::Piece; } ) {
+        $patch_for->( 'Time::Piece' => '1.20_01' );
+        my $strftime = \&Time::Piece::strftime;
+        *Time::Piece::strftime = sub {
+            state $encoder = find_encoding('UTF-8');
+            return $encoder->decode( $strftime->(@_) );
+        };
+    }
 
     # Smart::Comments enhancer
     if ( not $INC{'Smart/Comments.pm'} ) {
@@ -43,6 +43,7 @@ BEGIN {
     $patch_for->( 'Smart::Comments' => '1.0.4' );
 
     # define human-readable dump
+    ## no critic qw(Variables::ProtectPrivateVars)
     my $dd_dump = \&Data::Dumper::_dump;
     my $hr_dump = sub {
         my @args = @_;
@@ -101,12 +102,46 @@ BEGIN {
     *Smart::Comments::_Dump = sub {
         binmode STDERR => ':encoding(UTF-8)';
         local *Data::Dumper::Dump = $hr_dumpperl;
-        $sc_dump->(@_);
+        $sc_dump->( @_, nonl => 1 );
         binmode STDERR => ':pop';
     };
 }
 
+sub to_ref {
+    my @arg = @_;
+    if ( not @arg ) {
+        return {};
+    }
+
+    state $single = { HASH => 1, ARRAY => 1 };
+    if ( @arg == 1 and $single->{ ref $arg[0] } ) {
+        return $arg[0];
+    }
+
+    # looks like not a hash
+    if ( @arg % 2 == 1 ) {
+        return \@arg;
+    }
+
+    # ditto
+    for my $i ( 0 .. $#arg / 2 ) {
+        if ( not defined $arg[ $i * 2 ] or ref $arg[ $i * 2 ] ) {
+            return \@arg;
+        }
+    }
+
+    # looks like a hash
+    return {@arg};
+}
+
 sub import {
+    my ( undef, @arg ) = @_;
+
+    my $caller = caller;
+    foreach my $method (@arg) {
+        no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+        *{ $caller . q{::} . $method } = *{ __PACKAGE__ . q{::} . $method }{CODE};
+    }
 
     # enable Smart::Comments for caller
     if ( eval { require Smart::Comments; } ) {
@@ -114,6 +149,13 @@ sub import {
     }
 
     return;
+}
+
+sub new {
+    my ( $proto, @arg ) = @_;
+    my $class = ref $proto || $proto;
+    ### assert: $class ne __PACKAGE__
+    return bless to_ref(@arg), $class;
 }
 
 1;

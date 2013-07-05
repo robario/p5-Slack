@@ -1,4 +1,4 @@
-package Slack::App v0.3.0;
+package Slack::App v0.4.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
@@ -9,50 +9,22 @@ use English qw(-no_match_vars);
 use HTTP::Status qw(:constants status_message is_client_error);
 use Module::Load qw(load);
 use Module::Pluggable::Object;
-use Plack::Util::Accessor qw(config action view);
+use Plack::Util::Accessor qw(config);
 use Slack::Context;
 use Slack::Request;
 use Slack::Response;
-use Slack::Util;
-
-sub _by_priority {
-    return -( $a->priority <=> $b->priority );
-}
+use Slack::Util qw(to_ref);
 
 sub new {
     my ( $class, @args ) = @_;
-    ### Initialize...
-    my $self = $class->SUPER::new(
-        config => ref $args[0] eq 'HASH' ? $args[0] : {@args},
-        action => [],
-        view   => [],
-    );
-
-    $self->config->{appdir} //= do {
-        require Cwd;
-        my $pm = $class =~ s{::}{/}gr . '.pm';
-        if ( $INC{$pm} ) {
-            my $dir = $INC{$pm};
-            if ( $dir =~ s/\Q$pm\E\z// ) {
-                $dir .= q{..};
-            }
-            else {
-                # non-standard directory structure
-                $dir =~ s{[^/]+\z}{};
-            }
-            $dir = Cwd::abs_path($dir);
-            $dir =~ s{/blib}{};
-            $dir;
-        }
-        else {
-            # for one-liner
-            Cwd::getcwd;
-        }
-    };
-    $self->config->{rootdir} //= $self->config->{appdir} . '/root';
-
-    return $self;
+    if (@args) {
+        warnings::warnif( deprecated => '"config" of app is deprecated; please implement your own' );
+    }
+    return Slack::Util::new( $class => { config => to_ref(@args) } );
 }
+
+my %implement;
+my $strip;
 
 sub prepare_app {
     my $self = shift;
@@ -61,29 +33,61 @@ sub prepare_app {
     ### config: $self->config
 
     ### Setup Controller...
-    my @action;
-    my @view;
-    foreach my $package ( Module::Pluggable::Object->new( search_path => [ ref $self ] )->plugins ) {
-        if ( not $package->can('new') ) {
+    my $class = ref $self;
+    my @actions;
+    my @strip;
+    foreach my $package ( $class, Module::Pluggable::Object->new( search_path => [$class] )->plugins ) {
+
+        # load controller
+        if ( not $package->isa('Slack::Controller') ) {
+            if ( $package->isa('Slack::App') ) {
+                next;
+            }
             load $package;
         }
 
-        my $appname = ref $self;
-        ( my $prefix = $package ) =~ s/\A\Q$appname\E:://;
-        $prefix = join q{/}, map { lc s/(?<=.)\K([[:upper:]])/-$1/gr } split /::/, $prefix;
-        $prefix = q{/} . $prefix . q{/};
-        my $controller = $package->new( prefix => $prefix );
-        push @action, $controller->action;
-        push @view,   $controller->view;
+        # define prefix
+        if ( not $package->can('prefix') ) {
+            my $prefix = $package =~ s/\A\Q$class\E//r;
+            if ($prefix) {
+                $prefix = join q{/}, map { lc s/(?<=.)\K([[:upper:]])/-$1/gr } split /::/, $prefix;
+            }
+            $prefix = $prefix . q{/};
+
+            no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+            *{ $package . '::prefix' } = sub {
+                return $prefix;
+            };
+        }
+
+        # collect actions
+        foreach my $action ( $package->actions ) {
+            foreach my $method ( keys $action->code ) {
+                $implement{$method} = 1;
+            }
+
+            if ( exists $action->clause->{q{.}} ) {
+                push @strip, delete $action->clause->{q{.}};
+            }
+            push @actions, $action;
+        }
     }
+    ### assert: not grep {$_ eq q{.} or $_ eq q{/}} map {keys $_->clause} @actions
+    $strip = join q{|}, @strip;
+
+    # sort and assort actions
     {
         use sort qw(stable);
-
-        push $self->action, sort _by_priority @action;
-        push $self->view,   sort _by_priority @view;
+        my $by_depth = sub {
+            return -( $a->controller->prefix =~ tr[/][] <=> $b->controller->prefix =~ tr[/][] );
+        };
+        $self->{actions}->{prep} = [ sort { -$by_depth->() } grep { $_->type eq 'prep' } @actions ];    # breadth first order
+        $self->{actions}->{action} = [ sort $by_depth grep { $_->type eq 'action' } @actions ];         # depth first order
+        $self->{actions}->{view}   = [ sort $by_depth grep { $_->type eq 'view' } @actions ];           # ditto
     }
-    ### action: rows => [ [qw(Controller Name Pattern)], map { [ ref $_->controller, $_->name, $_->pattern ] } @{ $self->action } ], header_row => 1
-    ### view: rows => [ [qw(Controller Name Pattern)], map { [ ref $_->controller, $_->name, $_->pattern ] } @{ $self->view } ], header_row => 1
+    ### prep: rows => [ [qw(Controller Name Clause-Key Clause-Value)], map { my $c = $_; my @c = map { [ q{}, q{}, $_, $c->clause->{$_} ] } keys $c->clause; @{ $c[0] }[qw(0 1)] = ( $c->controller, $c->name ); @c } @{ $self->{actions}->{prep} } ], header_row => 1
+    ### action: rows => [ [qw(Controller Name Clause-Key Clause-Value)], map { my $c = $_; my @c = map { [ q{}, q{}, $_, $c->clause->{$_} ] } keys $c->clause; @{ $c[0] }[qw(0 1)] = ( $c->controller, $c->name ); @c } @{ $self->{actions}->{action} } ], header_row => 1
+    ### view: rows => [ [qw(Controller Name Clause-Key Clause-Value)], map { my $c = $_; my @c = map { [ q{}, q{}, $_, $c->clause->{$_} ] } keys $c->clause; @{ $c[0] }[qw(0 1)] = ( $c->controller, $c->name ); @c } @{ $self->{actions}->{view} } ], header_row => 1
 
     return;
 }
@@ -97,77 +101,67 @@ sub call {
         res => Slack::Response->new(0),
     );
 
-    my $path = $c->req->path;
-
-    foreach my $matcher ( @{ $self->view } ) {
-        #### view try matching: $path . ' =~ ' . $matcher->pattern
-        if ( not $path =~ $matcher->pattern ) {
-            next;
-        }
-        #### view matched: rows => [ [ Controller => ref $matcher->controller ], [ Name => $matcher->name ], [ Pattern => $matcher->pattern ], [ Path => $path ], [ q{$} . '{^MATCH}' => ${^MATCH} ] ]
-        $c->view($matcher);
-        if ( length $c->view->extension ) {
-            $path =~ s/[.]@{[$c->view->extension]}\z//;
-        }
-        last;
+    # urn:ietf:rfc:2616#10.5.2 The server does not support the functionality required to fulfill the request
+    if ( not exists $implement{ $c->req->method } ) {
+        $c->res->status(HTTP_NOT_IMPLEMENTED);
+        return $c->res->finalize;
     }
 
-    foreach my $matcher ( @{ $self->action } ) {
-        #### action try matching: $path . ' =~ ' . $matcher->pattern
-        if ( not $path =~ $matcher->pattern ) {
-            next;
+    # prep: call all the actions that match
+    foreach my $action ( @{ $self->{actions}->{prep} } ) {
+        if ( _process_action( $c, $action ) ) {
+            #### prep matched: $action->controller . '->' . $action->name
         }
-        $c->req->args( {%LAST_PAREN_MATCH} );
-        $c->req->argv(
-            [ map { substr $path, $LAST_MATCH_START[$_], $LAST_MATCH_END[$_] - $LAST_MATCH_START[$_] } 1 .. $#LAST_MATCH_START ] );
-        #### action matched: rows => [ [ Controller => ref $matcher->controller ], [ Name => $matcher->name ], [ Pattern => $matcher->pattern ], [ Path => $path ], [ q{$} . '{^MATCH}' => ${^MATCH} ], map { [ q{$} . $_, $c->req->argv->[ $_ - 1 ] ] } 1 .. @{ $c->req->argv } ]
-        $c->action($matcher);
-        last;
     }
 
-    # urn:ietf:rfc:2616#9.4: The HEAD method is identical to GET
-    my $method = $c->req->method eq 'HEAD' ? 'GET' : $c->req->method;
+    # action: call only action that matches the first
+    my $path_info = $c->req->env->{PATH_INFO};
+    if ($strip) {
+        $c->req->env->{PATH_INFO} =~ s/(?:[.](?:$strip))+\z//;
+    }
+    foreach my $action ( @{ $self->{actions}->{action} } ) {
+        if ( my $r = _process_action( $c, $action ) ) {
+            #### action matched: $action->controller . '->' . $action->name
+            $c->action($action);
 
-    if ( $c->action ) {
-        my $code = $c->action->code->{$method};
-        if ($code) {
-            #### Process action...
-            $code->($c);
-        }
-        else {
             # urn:ietf:rfc:2616#10.4.6
             # The method specified in the Request-Line is not allowed for the resource identified by the Request-URI
             # The response MUST include an Allow header containing a list of valid methods for the requested resource
-            $c->res->status(HTTP_METHOD_NOT_ALLOWED);
-            $c->res->header( Allow => join ', ', keys $c->action->code );
+            if ( $r == HTTP_METHOD_NOT_ALLOWED ) {
+                $c->res->status(HTTP_METHOD_NOT_ALLOWED);
+                $c->res->header( Allow => join ', ', keys $c->action->code );
+            }
+
+            last;
         }
     }
-    else {
-        # urn:ietf:rfc:2616#10.4.5: The server has not found anything matching the Request-URI
+    $c->req->env->{PATH_INFO} = $path_info;
+
+    # urn:ietf:rfc:2616#10.4.5 The server has not found anything matching the Request-URI
+    if ( not $c->action and not $c->res->status ) {
         $c->res->status(HTTP_NOT_FOUND);
     }
 
-    if ( not defined $c->res->body ) {
-        if ( $c->view ) {
-            my $code = $c->view->code->{$method} // $c->view->code->{GET};
-            #### Process view...
-            $code->($c);
+    # view: call until body defined
+    foreach my $action ( @{ $self->{actions}->{view} } ) {
+        if ( defined $c->res->body ) {
+            last;
         }
-        else {
-            $c->res->body(q{});
+        if ( _process_action( $c, $action ) ) {
+            #### view matched: $action->controller . '->' . $action->name
         }
     }
 
     #### Fixup response...
 
-    # urn:ietf:rfc:2616#10.4: the server SHOULD include an entity containing an explanation of the error situation
+    # urn:ietf:rfc:2616#10.4 the server SHOULD include an entity containing an explanation of the error situation
     if ( not defined $c->res->body and is_client_error( $c->res->status ) ) {
         $c->res->content_type('text/plain; charset=UTF-8');
         $c->res->body( status_message( $c->res->status ) );
     }
 
-    # urn:ietf:rfc:2616#9.4: the server MUST NOT return a message-body in the response
-    if ( $c->req->method eq 'HEAD' ) {
+    # urn:ietf:rfc:2616#9.4 the server MUST NOT return a message-body in the response
+    if ( $c->req->method eq 'HEAD' ) {    # Plack::Middleware::Head
         $c->res->body(undef);
     }
 
@@ -177,6 +171,41 @@ sub call {
     }
 
     return $c->res->finalize;
+}
+
+sub _process_action {
+    my ( $c, $action ) = @_;
+    my %args;
+    my @argv;
+    foreach my $name ( keys $action->clause ) {
+        #### try matching: '[' . $name . '] ' . $c->req->env->{$name} . ' =~ ' . $action->clause->{$name}
+        return if not exists $c->req->env->{$name};
+        if ( $c->req->env->{$name} =~ $action->clause->{$name} ) {
+            foreach my $i ( 1 .. $#LAST_MATCH_START ) {
+                push @argv, substr $c->req->env->{$name}, $LAST_MATCH_START[$i], $LAST_MATCH_END[$i] - $LAST_MATCH_START[$i];
+            }
+            %args = ( %args, %LAST_PAREN_MATCH );
+            next;
+        }
+        return;
+    }
+    if (@argv) {
+        $c->req->argv( \@argv );
+        #### argv: $c->req->argv
+        if (%args) {
+            $c->req->args( \%args );
+            #### args: $c->req->args
+        }
+    }
+
+    # urn:ietf:rfc:2616#9.4 The HEAD method is identical to GET
+    my $method = $c->req->method eq 'HEAD' ? 'GET' : $c->req->method;
+    my $code = $action->code->{$method};
+    if ( not defined $code ) {
+        return HTTP_METHOD_NOT_ALLOWED;
+    }
+    $code->($c);
+    return 1;
 }
 
 1;

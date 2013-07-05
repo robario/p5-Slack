@@ -9,28 +9,16 @@ use English qw(-no_match_vars);
 use HTTP::Status qw(:constants status_message is_client_error);
 use Module::Load qw(load);
 use Module::Pluggable::Object;
-use Plack::Util::Accessor qw(config);
 use Slack::Context;
 use Slack::Request;
 use Slack::Response;
-use Slack::Util qw(to_ref);
-
-sub new {
-    my ( $class, @args ) = @_;
-    if (@args) {
-        warnings::warnif( deprecated => '"config" of app is deprecated; please implement your own' );
-    }
-    return Slack::Util::new( $class => { config => to_ref(@args) } );
-}
+use Slack::Util qw(new to_ref);
 
 my %implement;
 my $strip;
 
 sub prepare_app {
     my $self = shift;
-
-    ### Setup Configuration...
-    ### config: $self->config
 
     ### Setup Controller...
     my $class = ref $self;

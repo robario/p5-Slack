@@ -18,8 +18,8 @@ sub new {
 sub param {
     my ($self) = @_;
     state $param_for = {
-        map { $_ => \&Plack::Request::query_parameters } qw(HEAD GET),
-        map { $_ => \&Plack::Request::body_parameters } qw(POST PUT DELETE),
+        ( map { $_ => \&Plack::Request::query_parameters } qw(HEAD GET) ),
+        ( map { $_ => \&Plack::Request::body_parameters } qw(POST PUT DELETE) ),
     };
 
     goto $param_for->{ $self->method };

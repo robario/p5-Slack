@@ -15,7 +15,7 @@ sub new {
     goto \&Plack::Request::new;
 }
 
-sub param {
+sub parameters {
     my ($self) = @_;
     state $param_for = {
         ( map { $_ => \&Plack::Request::query_parameters } qw(HEAD GET) ),

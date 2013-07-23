@@ -28,7 +28,7 @@ BEGIN {
 
     # Time::Piece encoding fix
     if ( eval { require Time::Piece; } ) {
-        $patch_for->( 'Time::Piece' => '1.20_01' );
+        $patch_for->( 'Time::Piece' => '1.21' );
         my $strftime = \&Time::Piece::strftime;
         *Time::Piece::strftime = sub {
             state $encoder = find_encoding('UTF-8');
@@ -40,7 +40,7 @@ BEGIN {
     if ( not $INC{'Smart/Comments.pm'} ) {
         return;
     }
-    $patch_for->( 'Smart::Comments' => '1.0.4' );
+    $patch_for->( 'Smart::Comments' => '1.000005' );
 
     # define human-readable dump
     ## no critic qw(Variables::ProtectPrivateVars)

@@ -22,7 +22,7 @@ BEGIN {
     my $patch_for = sub {
         my ( $class, $version ) = @_;
         if ( version->parse($version) < version->parse( $class->VERSION ) ) {
-            carp sprintf 'Could not apply the patch. Please check %s %s', $class, $class->VERSION;
+            carp(sprintf 'Please check the patch for %s-%s, installed version %s is higher', $class, $version, $class->VERSION);
         }
     };
 

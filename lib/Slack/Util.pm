@@ -22,7 +22,7 @@ BEGIN {
     my $patch_for = sub {
         my ( $class, $version ) = @_;
         if ( version->parse($version) < version->parse( $class->VERSION ) ) {
-            carp(sprintf 'Please check the patch for %s-%s, installed version %s is higher', $class, $version, $class->VERSION);
+            carp( sprintf 'Please check the patch for %s-%s, installed version %s is higher', $class, $version, $class->VERSION );
         }
     };
 
@@ -40,6 +40,7 @@ BEGIN {
     if ( not $INC{'Smart/Comments.pm'} ) {
         return;
     }
+    $patch_for->( 'Data::Dumper'    => '2.145' );
     $patch_for->( 'Smart::Comments' => '1.000005' );
 
     # define human-readable dump

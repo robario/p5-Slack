@@ -1,4 +1,4 @@
-package Slack::Util v0.2.0;
+package Slack::Util v0.2.1;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
@@ -22,25 +22,16 @@ BEGIN {
     my $patch_for = sub {
         my ( $class, $version ) = @_;
         if ( version->parse($version) < version->parse( $class->VERSION ) ) {
-            carp sprintf 'Could not apply the patch. Please check %s %s', $class, $class->VERSION;
+            carp( sprintf 'Please check the patch for %s-%s, installed version %s is higher', $class, $version, $class->VERSION );
         }
     };
-
-    # Time::Piece encoding fix
-    if ( eval { require Time::Piece; } ) {
-        $patch_for->( 'Time::Piece' => '1.20_01' );
-        my $strftime = \&Time::Piece::strftime;
-        *Time::Piece::strftime = sub {
-            state $encoder = find_encoding('UTF-8');
-            return $encoder->decode( $strftime->(@_) );
-        };
-    }
 
     # Smart::Comments enhancer
     if ( not $INC{'Smart/Comments.pm'} ) {
         return;
     }
-    $patch_for->( 'Smart::Comments' => '1.0.4' );
+    $patch_for->( 'Data::Dumper'    => '2.145' );
+    $patch_for->( 'Smart::Comments' => '1.000005' );
 
     # define human-readable dump
     ## no critic qw(Variables::ProtectPrivateVars)

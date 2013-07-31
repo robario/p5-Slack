@@ -1,4 +1,4 @@
-package Slack::Controller v0.5.1;
+package Slack::Controller v0.6.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
@@ -78,10 +78,6 @@ sub actions {
             $clause = { q{/} => $clause };
         }
 
-        if ( exists $clause->{q{extension}} ) {
-            warnings::warnif( deprecated => 'clause parameter "extension" is deprecated; use "." instead' );
-            $clause->{q{.}} = delete $clause->{q{extension}};
-        }
         if ( not exists $clause->{PATH_INFO} ) {
             #### Generate PATH_INFO clause automatically...
             my $path = delete $clause->{q{/}};

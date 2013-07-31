@@ -1,4 +1,4 @@
-package Slack::Request v0.3.1;
+package Slack::Request v0.3.2;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
@@ -15,7 +15,7 @@ sub new {
     goto \&Plack::Request::new;
 }
 
-sub param {
+sub parameters {
     my ($self) = @_;
     state $param_for = {
         ( map { $_ => \&Plack::Request::query_parameters } qw(HEAD GET) ),

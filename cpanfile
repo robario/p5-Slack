@@ -24,7 +24,6 @@ requires 'sort';
 requires 'version';
 recommends 'Smart::Comments';
 recommends 'Text::Table::Tiny';
-suggests 'Time::Piece';
 
 on test => sub {
     requires 'B::Deparse';

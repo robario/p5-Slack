@@ -26,16 +26,6 @@ BEGIN {
         }
     };
 
-    # Time::Piece encoding fix
-    if ( eval { require Time::Piece; } ) {
-        $patch_for->( 'Time::Piece' => '1.21' );
-        my $strftime = \&Time::Piece::strftime;
-        *Time::Piece::strftime = sub {
-            state $encoder = find_encoding('UTF-8');
-            return $encoder->decode( $strftime->(@_) );
-        };
-    }
-
     # Smart::Comments enhancer
     if ( not $INC{'Smart/Comments.pm'} ) {
         return;

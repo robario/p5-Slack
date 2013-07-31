@@ -1,4 +1,4 @@
-package Slack::Controller v0.5.0;
+package Slack::Controller v0.5.1;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
@@ -15,6 +15,7 @@ FILTER_ONLY code => sub {
     state $keyword_re      = qr/ \b (?<keyword>$keyword_pattern) \b /;
     state $asis_pattern    = join q{|}, (
         ## no critic qw(ValuesAndExpressions::RequireInterpolationOfMetachars)
+        '\0\0',             # mark as literal by Filter::Simple
         q[{'],              # variable name or hash key
         '->',               # method call
         quotemeta q{$#},    # last index op

@@ -1,4 +1,4 @@
-package Slack::Request v0.3.1;
+package Slack::Request v0.3.2;
 use v5.14.0;
 use warnings;
 use encoding::warnings;

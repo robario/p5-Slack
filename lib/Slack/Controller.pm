@@ -77,7 +77,6 @@ sub actions {
             ### assert: not ref $clause or ref $clause eq 'Regexp' and "$clause" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
             $clause = { q{/} => $clause };
         }
-
         if ( not exists $clause->{PATH_INFO} ) {
             #### Generate PATH_INFO clause automatically...
             my $path = delete $clause->{q{/}};
@@ -110,10 +109,11 @@ sub actions {
         }
 
         if ( ref $code eq 'CODE' ) {
-            $code = { GET => $code };
+            $code = { ( $type eq 'action' ? 'GET' : q{*} ) => $code };
         }
-        elsif ( ref $code eq 'HASH' ) {
+        if ( ref $code eq 'HASH' ) {
             ### assert: not exists $code->{HEAD}
+            ### assert: $type ne 'action' or not exists $code->{q{*}}
         }
         else { ... }
 

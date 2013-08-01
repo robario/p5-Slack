@@ -50,10 +50,6 @@ sub prepare_app {
 
         # collect actions
         foreach my $action ( $package->actions ) {
-            foreach my $method ( keys $action->code ) {
-                $implement{$method} = 1;
-            }
-
             if ( exists $action->clause->{q{.}} ) {
                 push @strip, delete $action->clause->{q{.}};
             }
@@ -76,6 +72,12 @@ sub prepare_app {
     ### prep: rows => [ [qw(Controller Name Clause-Key Clause-Value)], map { my $c = $_; my @c = map { [ q{}, q{}, $_, $c->clause->{$_} ] } keys $c->clause; @{ $c[0] }[qw(0 1)] = ( $c->controller, $c->name ); @c } @{ $self->{actions}->{prep} } ], header_row => 1
     ### action: rows => [ [qw(Controller Name Clause-Key Clause-Value)], map { my $c = $_; my @c = map { [ q{}, q{}, $_, $c->clause->{$_} ] } keys $c->clause; @{ $c[0] }[qw(0 1)] = ( $c->controller, $c->name ); @c } @{ $self->{actions}->{action} } ], header_row => 1
     ### view: rows => [ [qw(Controller Name Clause-Key Clause-Value)], map { my $c = $_; my @c = map { [ q{}, q{}, $_, $c->clause->{$_} ] } keys $c->clause; @{ $c[0] }[qw(0 1)] = ( $c->controller, $c->name ); @c } @{ $self->{actions}->{view} } ], header_row => 1
+
+    foreach my $action ( @{ $self->{actions}->{action} } ) {
+        foreach my $method ( keys $action->code ) {
+            $implement{$method} = 1;
+        }
+    }
 
     return;
 }
@@ -188,7 +190,7 @@ sub _process_action {
 
     # urn:ietf:rfc:2616#9.4 The HEAD method is identical to GET
     my $method = $c->req->method eq 'HEAD' ? 'GET' : $c->req->method;
-    my $code = $action->code->{$method};
+    my $code = $action->code->{$method} // $action->code->{q{*}};
     if ( not defined $code ) {
         return HTTP_METHOD_NOT_ALLOWED;
     }

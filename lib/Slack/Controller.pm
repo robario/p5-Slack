@@ -4,7 +4,6 @@ use warnings;
 use encoding::warnings;
 use re qw(/msx);
 
-use Encode qw(find_encoding);
 use English qw(-no_match_vars);
 use Filter::Simple;
 use Slack::Action;
@@ -24,9 +23,6 @@ FILTER_ONLY code => sub {
     );
     state $asis_re = qr/\A (?:$asis_pattern) \z/;
 
-    my $encoder = find_encoding('UTF-8');          # FIXME: guess encoding
-    $_ = $encoder->decode($_);
-
     # mark as variable name or hash key
     s/ { \s* $keyword_re \s* } /{'$LAST_PAREN_MATCH{keyword}'}/g;
 
@@ -39,8 +35,6 @@ FILTER_ONLY code => sub {
         my $keyword = $LAST_PAREN_MATCH{keyword};
         $LAST_PAREN_MATCH{before} =~ $asis_re ? $keyword : q{$} . '_[0]' . ( $keyword eq 'c' ? q{} : "->$keyword" );
     }eg;
-
-    $_ = $encoder->encode($_);
 };
 
 sub import {

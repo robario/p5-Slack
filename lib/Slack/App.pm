@@ -98,7 +98,7 @@ sub call {
     # prep: call all the actions that match
     foreach my $action ( @{ $self->{actions}->{prep} } ) {
         if ( _process_action( $c, $action ) ) {
-            #### prep matched: $action->controller . '->' . $action->name
+            ### prep matched: $action->controller . '->' . $action->name
         }
     }
 
@@ -109,7 +109,7 @@ sub call {
     }
     foreach my $action ( @{ $self->{actions}->{action} } ) {
         if ( my $r = _process_action( $c, $action ) ) {
-            #### action matched: $action->controller . '->' . $action->name
+            ### action matched: $action->controller . '->' . $action->name
             $c->action($action);
 
             # urn:ietf:rfc:2616#10.4.6
@@ -136,7 +136,7 @@ sub call {
             last;
         }
         if ( _process_action( $c, $action ) ) {
-            #### view matched: $action->controller . '->' . $action->name
+            ### view matched: $action->controller . '->' . $action->name
         }
     }
 

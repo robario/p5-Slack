@@ -119,7 +119,8 @@ sub call {
             # The response MUST include an Allow header containing a list of valid methods for the requested resource
             if ( $r == HTTP_METHOD_NOT_ALLOWED ) {
                 $c->res->status(HTTP_METHOD_NOT_ALLOWED);
-                $c->res->header( Allow => join ', ', keys $c->action->code );
+                ## no critic qw(RegularExpressions::ProhibitEnumeratedClasses)
+                $c->res->header( Allow => join ', ', grep { /\A[A-Z]+\z/ } keys $action->code );
             }
 
             last;
@@ -194,7 +195,13 @@ sub _process_action {
     if ( not defined $code ) {
         return HTTP_METHOD_NOT_ALLOWED;
     }
+    if ( my $pre = $action->code->{q{^}} ) {
+        $pre->($c);
+    }
     $code->($c);
+    if ( my $post = $action->code->{q{$}} ) {
+        $post->($c);
+    }
     return 1;
 }
 

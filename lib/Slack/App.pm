@@ -97,43 +97,45 @@ sub call {
         return $c->res->finalize;
     }
 
-    # prep: call all the actions that match
+    #### Preprocessing...
     foreach my $action ( @{ $self->{actions}->{prep} } ) {
         if ( _process_action( $c, $action ) ) {
             ### prep matched: $action->controller . '->' . $action->name
         }
     }
 
-    # action: call only action that matches the first
-    my $path_info = $c->req->env->{PATH_INFO};
-    if ($strip) {
-        $c->req->env->{PATH_INFO} =~ s/(?:[.](?:$strip))+\z//;
-    }
-    foreach my $action ( @{ $self->{actions}->{action} } ) {
-        if ( my $r = _process_action( $c, $action ) ) {
-            ### action matched: $action->controller . '->' . $action->name
-            $c->action($action);
+    #### Ensuring response status...
+    if ( not $c->res->status ) {
+        my $path_info = $c->req->env->{PATH_INFO};
+        if ($strip) {
+            $c->req->env->{PATH_INFO} =~ s/(?:[.](?:$strip))+\z//;
+        }
+        foreach my $action ( @{ $self->{actions}->{action} } ) {
+            if ( my $r = _process_action( $c, $action ) ) {
+                ### action matched: $action->controller . '->' . $action->name
+                $c->action($action);
 
-            # urn:ietf:rfc:2616#10.4.6
-            # The method specified in the Request-Line is not allowed for the resource identified by the Request-URI
-            # The response MUST include an Allow header containing a list of valid methods for the requested resource
-            if ( $r == HTTP_METHOD_NOT_ALLOWED ) {
-                $c->res->status(HTTP_METHOD_NOT_ALLOWED);
-                ## no critic qw(RegularExpressions::ProhibitEnumeratedClasses)
-                $c->res->header( Allow => join ', ', grep { /\A[A-Z]+\z/ } keys $action->code );
+                # urn:ietf:rfc:2616#10.4.6
+                # The method specified in the Request-Line is not allowed for the resource identified by the Request-URI
+                # The response MUST include an Allow header containing a list of valid methods for the requested resource
+                if ( $r == HTTP_METHOD_NOT_ALLOWED ) {
+                    $c->res->status(HTTP_METHOD_NOT_ALLOWED);
+                    ## no critic qw(RegularExpressions::ProhibitEnumeratedClasses)
+                    $c->res->header( Allow => join ', ', grep { /\A[A-Z]+\z/ } keys $action->code );
+                }
+
+                last;
             }
+        }
+        $c->req->env->{PATH_INFO} = $path_info;
 
-            last;
+        # urn:ietf:rfc:2616#10.4.5 The server has not found anything matching the Request-URI
+        if ( not $c->res->status ) {
+            $c->res->status( $c->action ? HTTP_OK : HTTP_NOT_FOUND );
         }
     }
-    $c->req->env->{PATH_INFO} = $path_info;
 
-    # urn:ietf:rfc:2616#10.4.5 The server has not found anything matching the Request-URI
-    if ( not $c->action and not $c->res->status ) {
-        $c->res->status(HTTP_NOT_FOUND);
-    }
-
-    # view: call until body defined
+    #### Ensuring response body...
     foreach my $action ( @{ $self->{actions}->{view} } ) {
         if ( defined $c->res->body ) {
             last;
@@ -143,22 +145,21 @@ sub call {
         }
     }
 
-    #### Fixup response...
+    if ( not defined $c->res->body ) {
 
-    # urn:ietf:rfc:2616#10.4 the server SHOULD include an entity containing an explanation of the error situation
-    if ( not defined $c->res->body and is_client_error( $c->res->status ) ) {
-        $c->res->content_type('text/plain; charset=UTF-8');
-        $c->res->body( status_message( $c->res->status ) );
+        # urn:ietf:rfc:2616#10.4 the server SHOULD include an entity containing an explanation of the error situation
+        if ( is_client_error( $c->res->status ) ) {
+            $c->res->content_type('text/plain; charset=UTF-8');
+            $c->res->body( status_message( $c->res->status ) );
+        }
+        else {
+            $c->res->body(q{});
+        }
     }
 
     # urn:ietf:rfc:2616#9.4 the server MUST NOT return a message-body in the response
     if ( $c->req->method eq 'HEAD' ) {    # Plack::Middleware::Head
         $c->res->body(undef);
-    }
-
-    # the default response status code is 200
-    if ( not $c->res->status ) {
-        $c->res->status(HTTP_OK);
     }
 
     return $c->res->finalize;

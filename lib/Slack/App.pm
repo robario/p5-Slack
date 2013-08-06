@@ -79,6 +79,10 @@ sub prepare_app {
         }
     }
 
+    # urn:ietf:rfc:2616#5.1.1 The methods GET and HEAD MUST be supported by all general-purpose servers
+    # HEAD has been checked by Slack::Controller
+    ### assert: exists $implement{GET}
+
     return;
 }
 

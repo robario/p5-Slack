@@ -13,29 +13,34 @@ FILTER_ONLY code => sub {
     no encoding::warnings;    # Do not decode the literals in the filter. If you use utf8, then please no utf8.
 
     state $keyword_pattern = join q{|}, qw(c req res);
-    state $keyword_re      = qr/ \b (?<keyword>$keyword_pattern) \b /;
-    state $asis_pattern    = join q{|}, (
+    state $keyword_re      = qr/(?<keyword> \s* \b (?:$keyword_pattern) \b \s* )/;
+    state $asis_prefix_re  = join q{|}, (
         ## no critic qw(ValuesAndExpressions::RequireInterpolationOfMetachars)
-        '\0\0',               # mark as literal by Filter::Simple
-        q[{'],                # variable name or hash key
         '->',                 # method call
-        quotemeta q{$#},      # last index op
-        ( sprintf '.?[%s]', quotemeta '$@%*' ),    # symbol table lookup without `&`
-        '(?!<&)&',                                 # symbol table lookup by `&` except `&&` op
+        quotemeta q{$#},      # last index sigil
+        ( sprintf '[%s]', quotemeta '$@%*' ),    # symbol table lookup sigil without `&`
+        '(?<!&)&',                               # symbol table lookup sigil `&` except `&&` op
     );
-    state $asis_re = qr/\A (?:$asis_pattern) \z/;
+    state $asis_postfix_re = join q{|}, (
+        '=>',                                    # hash key FIXME: or fat comma
+    );
+    state $asis_re = qr{
+                        (?<asis>
+                          $Filter::Simple::placeholder             # placeholder of literal
+                          |                 [{] $keyword_re [}]    # variable name or hash key
+                          | (?:$asis_prefix_re) $keyword_re
+                          |                     $keyword_re (?:$asis_postfix_re)
+                        )
+                       };
 
-    # mark as variable name or hash key
-    s/ { \s* $keyword_re \s* } /{'$LAST_PAREN_MATCH{keyword}'}/g;
-
-    # keyword expansion
-    s{
-      (?<before> \S{0,2} ) \s* \K    # keep because only for checking
-      $keyword_re
-      (?! \s* => )                   # avoid hash key
-    }{
-        my $keyword = $LAST_PAREN_MATCH{keyword};
-        $LAST_PAREN_MATCH{before} =~ $asis_re ? $keyword : q{$} . '_[0]' . ( $keyword eq 'c' ? q{} : "->$keyword" );
+    s{ $asis_re | $keyword_re }{
+        $LAST_PAREN_MATCH{asis} or do {
+            my $keyword = $LAST_PAREN_MATCH{keyword};
+            if ( $keyword !~ /\bc\b/ ) {
+                $keyword =~ s/(\S+)/c->$1/;
+            }
+            $keyword =~ s/\bc\b/\$_[0]/r;
+        };
     }eg;
 };
 

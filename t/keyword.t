@@ -8,8 +8,8 @@ no warnings;    ## no critic qw(TestingAndDebugging::ProhibitNoWarnings)
 use Slack qw(Controller);
 
 ## no critic qw(TestingAndDebugging::RequireUseStrict TestingAndDebugging::RequireUseWarnings)
+## no critic qw(Subroutines::ProhibitAmpersandSigils References::ProhibitDoubleSigils)
 sub method {
-    ## no critic qw(Subroutines::ProhibitAmpersandSigils References::ProhibitDoubleSigils)
 
     # various pattern
     c;
@@ -56,7 +56,6 @@ sub method {
     {c->req=>c};
     1 && c;
     1&&c;
-    1&c;
     -c;
     +c;
     1 -c;
@@ -73,6 +72,7 @@ sub todo {
 
     # (please don't tidy here)
     1 & c;
+    1&c;
     1 % c;
     1%c;
     1 * c;
@@ -120,18 +120,17 @@ is_deeply(
         q{'???';},
 
         # variable names should not be replaced
-        ( qw($c; @c; %c; &c; *c; ), '$#c;' ),
-        ( qw(${'c';}; @{'c';}; %{'c';}; &{'c';}; *{'c';};), q{$#{'c';};} ),
+        ( qw($c; @c; %c; &c; *c;), '$#c;' ),
+        ( qw($c; @c; %c; &c; *c;), '$#c;' ),
 
         # strange spaces
         qw($c; @c; %c; &c; *c;),
-        ( qw(${'c';}; @{'c';}; %{'c';}; &{'c';}; *{'c';};), q{$#{'c';};} ),
+        ( qw($c; @c; %c; &c; *c;), '$#c;' ),
         '$foo->c;',
         '$_[0]->req;',
         ( '{', '$_[0]->req, $_[0];', '}' ),
         '$_[0];',
         '$_[0];',
-        '1 & $_[0];',
         '-$_[0];',
         '$_[0];',
         '1 - $_[0];',
@@ -148,6 +147,7 @@ TODO: {
     local $TODO = 'hard syntax';
     my @expected = (
         ## no critic qw(ValuesAndExpressions::RequireInterpolationOfMetachars)
+        '1 & $_[0];'      => 'misunderstood subroutine',
         '1 & $_[0];'      => 'misunderstood subroutine',
         '1 % $_[0];'      => 'misunderstood hash variable',
         '1 % $_[0];'      => 'misunderstood hash variable',

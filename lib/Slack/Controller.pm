@@ -10,14 +10,16 @@ use Slack::Action;
 use Slack::Util;
 
 FILTER_ONLY code => sub {
+    no encoding::warnings;    # Do not decode the literals in the filter. If you use utf8, then please no utf8.
+
     state $keyword_pattern = join q{|}, qw(c req res);
     state $keyword_re      = qr/ \b (?<keyword>$keyword_pattern) \b /;
     state $asis_pattern    = join q{|}, (
         ## no critic qw(ValuesAndExpressions::RequireInterpolationOfMetachars)
-        '\0\0',             # mark as literal by Filter::Simple
-        q[{'],              # variable name or hash key
-        '->',               # method call
-        quotemeta q{$#},    # last index op
+        '\0\0',               # mark as literal by Filter::Simple
+        q[{'],                # variable name or hash key
+        '->',                 # method call
+        quotemeta q{$#},      # last index op
         ( sprintf '.?[%s]', quotemeta '$@%*' ),    # symbol table lookup without `&`
         '(?!<&)&',                                 # symbol table lookup by `&` except `&&` op
     );

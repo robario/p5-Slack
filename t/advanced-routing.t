@@ -39,19 +39,20 @@ action admin => { q{/} => q{}, 'myapp.authorized' => 1 } => sub {
     push @{ res->stash->{callstack} }, 'admin';
 };
 
-package MyApp::Web::Foo;
+package MyApp::Web::Status;
 use Slack qw(Controller);
 
-action 'only have POST action code' => { PATH_INFO => '/only_have_post' } => {
+action 'ignore prefix' => { PATH_INFO => '/ignore-prefix' } => sub { };
+
+action 'POST only' => {
     POST => sub { }
 };
 
-action 'only match POST method' => { PATH_INFO => '/only_match_post', REQUEST_METHOD => 'POST' } => sub {
-};
+action 'bad request' => { HTTP_COOKIE => 'bar' } => sub { };
 
 package T;
 use FindBin qw($Bin);
-use HTTP::Request::Common qw(GET);
+use HTTP::Request::Common qw(GET POST);
 use HTTP::Status qw(:constants);
 use Plack::Test qw(test_psgi);
 use Test::More;
@@ -60,11 +61,14 @@ sub client {
     my $cb = shift;
     my $res;
 
-    $res = $cb->( GET '/only_have_post' );
-    is( $res->code, HTTP_METHOD_NOT_ALLOWED, '/only_have_post only have POST action code' );
+    is( $cb->( GET '/ignore-prefix' )->code,        HTTP_OK,        'ignore prefix' );
+    is( $cb->( GET '/status/ignore-prefix' )->code, HTTP_NOT_FOUND, 'ignore prefix' );
 
-    $res = $cb->( GET '/only_match_post' );
-    is( $res->code, HTTP_NOT_FOUND, '/only_match_post only match POST method' );
+    is( $cb->( GET '/status/POST only' )->code, HTTP_METHOD_NOT_ALLOWED, '/POST only' );
+    is( $cb->( POST '/status/POST only' )->code, HTTP_OK, '/POST only' );
+
+    is( $cb->( GET '/status/bad request' )->code, HTTP_BAD_REQUEST, 'bad request' );
+    is( $cb->( GET '/status/bad request', COOKIE => 'bar' )->code, HTTP_OK, 'bad request' );
 
     $res = $cb->( GET '/foo' );
     is( $res->header('X-CALLSTACK'), 'swallow_begin,swallow_finish', q{} );

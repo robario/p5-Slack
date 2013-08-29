@@ -6,13 +6,21 @@ use re qw(/msx);
 use parent qw(Plack::Component);
 
 use English qw(-no_match_vars);
-use HTTP::Status qw(:constants status_message is_client_error);
+use HTTP::Status qw(
+  is_client_error
+  status_message
+  HTTP_OK
+  HTTP_BAD_REQUEST
+  HTTP_NOT_FOUND
+  HTTP_METHOD_NOT_ALLOWED
+  HTTP_NOT_IMPLEMENTED
+);
 use Module::Load qw(load);
 use Module::Pluggable::Object;
 use Slack::Context;
 use Slack::Request;
 use Slack::Response;
-use Slack::Util qw(new to_ref);
+use Slack::Util qw(new);
 
 my %implement;
 my $strip;
@@ -103,7 +111,7 @@ sub call {
 
     #### Preprocessing...
     foreach my $action ( @{ $self->{actions}->{prep} } ) {
-        if ( _process_action( $c, $action ) ) {
+        if ( _process_action( $c, $action ) == HTTP_OK ) {
             ### prep matched: $action->controller . '->' . $action->name
         }
     }
@@ -115,27 +123,35 @@ sub call {
             $c->req->env->{PATH_INFO} =~ s/(?:[.](?:$strip))+\z//;
         }
         foreach my $action ( @{ $self->{actions}->{action} } ) {
-            if ( my $r = _process_action( $c, $action ) ) {
+            my $r = _process_action( $c, $action );
+            if ( $r == HTTP_NOT_FOUND ) {
+                next;
+            }
+
+            if ( $r == HTTP_OK ) {
                 ### action matched: $action->controller . '->' . $action->name
                 $c->action($action);
-
-                # urn:ietf:rfc:2616#10.4.6
-                # The method specified in the Request-Line is not allowed for the resource identified by the Request-URI
-                # The response MUST include an Allow header containing a list of valid methods for the requested resource
-                if ( $r == HTTP_METHOD_NOT_ALLOWED ) {
-                    $c->res->status(HTTP_METHOD_NOT_ALLOWED);
-                    ## no critic qw(RegularExpressions::ProhibitEnumeratedClasses)
-                    $c->res->header( Allow => join ', ', grep { /\A[A-Z]+\z/ } keys $action->code );
-                }
-
-                last;
             }
+
+            if ( not $c->res->status ) {
+                $c->res->status($r);
+            }
+
+            # urn:ietf:rfc:2616#10.4.6
+            # The method specified in the Request-Line is not allowed for the resource identified by the Request-URI
+            # The response MUST include an Allow header containing a list of valid methods for the requested resource
+            if ( $c->res->status == HTTP_METHOD_NOT_ALLOWED ) {
+                ## no critic qw(RegularExpressions::ProhibitEnumeratedClasses)
+                $c->res->header( Allow => join ', ', grep { /\A[A-Z]+\z/ } keys $action->code );
+            }
+
+            last;
         }
         $c->req->env->{PATH_INFO} = $path_info;
 
         # urn:ietf:rfc:2616#10.4.5 The server has not found anything matching the Request-URI
         if ( not $c->res->status ) {
-            $c->res->status( $c->action ? HTTP_OK : HTTP_NOT_FOUND );
+            $c->res->status(HTTP_NOT_FOUND);
         }
     }
 
@@ -144,7 +160,7 @@ sub call {
         if ( defined $c->res->body ) {
             last;
         }
-        if ( _process_action( $c, $action ) ) {
+        if ( _process_action( $c, $action ) == HTTP_OK ) {
             ### view matched: $action->controller . '->' . $action->name
         }
     }
@@ -173,17 +189,24 @@ sub _process_action {
     my ( $c, $action ) = @_;
     my %args;
     my @argv;
-    foreach my $name ( keys $action->clause ) {
-        #### try matching: '[' . $name . '] ' . $c->req->env->{$name} . ' =~ ' . $action->clause->{$name}
-        return if not exists $c->req->env->{$name};
-        if ( $c->req->env->{$name} =~ $action->clause->{$name} ) {
+    foreach my $name ( sort { -( ( $a eq 'PATH_INFO' ) <=> ( $b eq 'PATH_INFO' ) ) } keys $action->clause ) {
+        #### try matching: '[' . $name . '] ' . ( $c->req->env->{$name} // q{} ) . ' =~ ' . $action->clause->{$name}
+        if ( exists $c->req->env->{$name} and $c->req->env->{$name} =~ $action->clause->{$name} ) {
             foreach my $i ( 1 .. $#LAST_MATCH_START ) {
                 push @argv, substr $c->req->env->{$name}, $LAST_MATCH_START[$i], $LAST_MATCH_END[$i] - $LAST_MATCH_START[$i];
             }
             %args = ( %args, %LAST_PAREN_MATCH );
             next;
         }
-        return;
+        if ( $name eq 'PATH_INFO' ) {
+            return HTTP_NOT_FOUND;
+        }
+        elsif ( $name eq 'REQUEST_METHOD' ) {
+            return HTTP_METHOD_NOT_ALLOWED;
+        }
+        else {
+            return HTTP_BAD_REQUEST;
+        }
     }
     if (@argv) {
         $c->req->argv( \@argv );
@@ -207,7 +230,7 @@ sub _process_action {
     if ( my $post = $action->code->{q{$}} ) {
         $post->($c);
     }
-    return 1;
+    return HTTP_OK;
 }
 
 1;

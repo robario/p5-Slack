@@ -22,8 +22,21 @@ use Slack::Request;
 use Slack::Response;
 use Slack::Util qw(new);
 
+my $CGI_VARIABLES = {
+    PATH_INFO      => HTTP_NOT_FOUND,
+    REQUEST_METHOD => HTTP_METHOD_NOT_ALLOWED,
+};
 my %implement;
 my $strip;
+
+sub by_clause_priority {
+    return
+         -( ( $a eq 'PATH_INFO' ) <=> ( $b eq 'PATH_INFO' ) )
+      || -( exists $CGI_VARIABLES->{$a} <=> exists $CGI_VARIABLES->{$b} )
+      || -( $a =~ /\AHTTP_/ <=> $b =~ /\AHTTP_/ )
+      || -( $a =~ /\AX_/ <=> $b =~ /\AX_/ )
+      || $a cmp $b;
+}
 
 sub prepare_app {
     my $self = shift;
@@ -189,7 +202,7 @@ sub _process_action {
     my ( $c, $action ) = @_;
     my %args;
     my @argv;
-    foreach my $name ( sort { -( ( $a eq 'PATH_INFO' ) <=> ( $b eq 'PATH_INFO' ) ) } keys $action->clause ) {
+    foreach my $name ( sort by_clause_priority keys $action->clause ) {
         #### try matching: '[' . $name . '] ' . ( $c->req->env->{$name} // q{} ) . ' =~ ' . $action->clause->{$name}
         if ( exists $c->req->env->{$name} and $c->req->env->{$name} =~ $action->clause->{$name} ) {
             foreach my $i ( 1 .. $#LAST_MATCH_START ) {
@@ -198,15 +211,7 @@ sub _process_action {
             %args = ( %args, %LAST_PAREN_MATCH );
             next;
         }
-        if ( $name eq 'PATH_INFO' ) {
-            return HTTP_NOT_FOUND;
-        }
-        elsif ( $name eq 'REQUEST_METHOD' ) {
-            return HTTP_METHOD_NOT_ALLOWED;
-        }
-        else {
-            return HTTP_BAD_REQUEST;
-        }
+        return $CGI_VARIABLES->{$name} // HTTP_BAD_REQUEST;
     }
     if (@argv) {
         $c->req->argv( \@argv );

@@ -111,6 +111,13 @@ sub actions {
         if ( ref $code eq 'HASH' ) {
             ### assert: not exists $code->{HEAD}
             ### assert: $type ne 'action' or not exists $code->{q{*}}
+            if ( not exists $clause->{REQUEST_METHOD} and not exists $code->{q{*}} ) {
+                $clause->{REQUEST_METHOD} = join q{|}, keys $code;
+                if ( exists $code->{GET} ) {
+                    $clause->{REQUEST_METHOD} .= '|HEAD';
+                }
+                $clause->{REQUEST_METHOD} = qr/\A(?:$clause->{REQUEST_METHOD})\z/;
+            }
         }
         else { ... }
 

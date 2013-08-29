@@ -220,9 +220,7 @@ sub _process_action {
     # urn:ietf:rfc:2616#9.4 The HEAD method is identical to GET
     my $method = $c->req->method eq 'HEAD' ? 'GET' : $c->req->method;
     my $code = $action->code->{$method} // $action->code->{q{*}};
-    if ( not defined $code ) {
-        return HTTP_METHOD_NOT_ALLOWED;
-    }
+    ### assert: defined $code
     if ( my $pre = $action->code->{q{^}} ) {
         $pre->($c);
     }

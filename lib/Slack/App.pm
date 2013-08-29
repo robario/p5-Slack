@@ -90,9 +90,21 @@ sub prepare_app {
         $self->{actions}->{action} = [ sort $by_depth grep { $_->type eq 'action' } @actions ];         # depth first order
         $self->{actions}->{view}   = [ sort $by_depth grep { $_->type eq 'view' } @actions ];           # ditto
     }
-    ### prep: rows => [ [qw(Controller Name Clause-Key Clause-Value)], map { my $c = $_; my @c = map { [ q{}, q{}, $_, $c->clause->{$_} ] } keys $c->clause; @{ $c[0] }[qw(0 1)] = ( $c->controller, $c->name ); @c } @{ $self->{actions}->{prep} } ], header_row => 1
-    ### action: rows => [ [qw(Controller Name Clause-Key Clause-Value)], map { my $c = $_; my @c = map { [ q{}, q{}, $_, $c->clause->{$_} ] } keys $c->clause; @{ $c[0] }[qw(0 1)] = ( $c->controller, $c->name ); @c } @{ $self->{actions}->{action} } ], header_row => 1
-    ### view: rows => [ [qw(Controller Name Clause-Key Clause-Value)], map { my $c = $_; my @c = map { [ q{}, q{}, $_, $c->clause->{$_} ] } keys $c->clause; @{ $c[0] }[qw(0 1)] = ( $c->controller, $c->name ); @c } @{ $self->{actions}->{view} } ], header_row => 1
+    my $ttt = sub {
+        my @table = ( [qw(Controller Name ClauseName ClauseValue)] );
+        foreach my $action (@_) {
+            my @row;
+            foreach my $name ( sort by_clause_priority keys $action->clause ) {
+                push @row, [ q{}, q{}, $name, $action->clause->{$name} ];
+            }
+            ( $row[0]->[0], $row[0]->[1] ) = ( $action->controller, $action->name );
+            push @table, @row;
+        }
+        return rows => \@table, header_row => 1;
+    };
+    ### prep: $ttt->( @{ $self->{actions}->{prep} } )
+    ### action: $ttt->( @{ $self->{actions}->{action} } )
+    ### view: $ttt->( @{ $self->{actions}->{view} } )
 
     foreach my $action ( @{ $self->{actions}->{action} } ) {
         foreach my $method ( keys $action->code ) {

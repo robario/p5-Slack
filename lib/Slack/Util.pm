@@ -69,6 +69,15 @@ BEGIN {
         if ($table) {
             my @data = @{ $args[1]->[0] };
             if ( $data[0] and $data[0] eq 'rows' and ref $data[1] eq 'ARRAY' and ref $data[1]->[0] eq 'ARRAY' ) {
+                foreach my $i ( 0 .. $#{ $data[1] } ) {
+
+                    # respond to recursive flag, sometimes malfunction
+                    while ( $data[1]->[$i]->[-1] =~ s{ \Q(?^\E .*? : (.*) \Q)\E}{$1} ) {
+                    }
+
+                    # remove escapes not important
+                    $data[1]->[$i]->[-1] =~ s{[\\]([-/ ])}{$1}g;
+                }
                 return "\n\e\n"    # un-smart comments sequence
                   . ( $table->(@data) =~ s/^/### /gr );
             }

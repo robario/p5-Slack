@@ -208,7 +208,7 @@ sub _process_action {
     my @argv;
     foreach my $name ( sort by_clause_priority keys $action->clause ) {
         #### try matching: '[' . $name . '] ' . ( $c->req->env->{$name} // q{} ) . ' =~ ' . $action->clause->{$name}
-        if ( exists $c->req->env->{$name} and $c->req->env->{$name} =~ $action->clause->{$name} ) {
+        if ( defined $c->req->env->{$name} and $c->req->env->{$name} =~ $action->clause->{$name} ) {
             foreach my $i ( 1 .. $#LAST_MATCH_START ) {
                 push @argv, substr $c->req->env->{$name}, $LAST_MATCH_START[$i], $LAST_MATCH_END[$i] - $LAST_MATCH_START[$i];
             }

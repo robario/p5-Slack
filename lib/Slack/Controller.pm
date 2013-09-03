@@ -65,8 +65,9 @@ sub actions {
     my $class = shift;
 
     my $prefix = $class->prefix;
-    ### assert: ref $prefix eq 'Regexp' or not ref $prefix and $prefix =~ qr{\A/} and $prefix =~ qr{/\z}
-    ### assert: not ref $prefix or ref $prefix eq 'Regexp' and "$prefix" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
+    ### assert: defined $prefix
+    ### assert: ref $prefix eq 'Regexp' or not ref $prefix and $prefix =~ m{\A / (?:.+/)? \z}
+    ### assert: not ref $prefix or ref $prefix eq 'Regexp' and "$prefix" !~ / [^\\] (?:[\\]{2})* [\\][Az] /
     my $actions = do {
         no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
         *{ $class . '::actions' }{ARRAY};
@@ -77,7 +78,7 @@ sub actions {
         if ( ref $clause ne 'HASH' ) {
             $clause = { q{/} => $clause };
         }
-        if ( not exists $clause->{PATH_INFO} and not exists $clause->{q{/}} ) {
+        if ( not defined $clause->{PATH_INFO} and not defined $clause->{q{/}} ) {
             if ( $type eq 'action' ) {
                 $clause->{q{/}} = $name;
             }
@@ -85,14 +86,14 @@ sub actions {
                 $clause->{q{/}} = qr/.*/;
             }
         }
-        if ( exists $clause->{q{/}} ) {
+        if ( defined $clause->{q{/}} ) {
             ### assert: not ref $clause->{q{/}} or ref $clause->{q{/}} eq 'Regexp' and "$clause->{q{/}}" !~ / [^\\] (?:[\\]{2})* [\\][Az] /
             if ( not ref $clause->{q{/}} ) {
                 $clause->{q{/}} = quotemeta $clause->{q{/}};
             }
             $clause->{q{/}} = qr{\A$prefix$clause->{q{/}}\z};
         }
-        if ( exists $clause->{q{.}} ) {
+        if ( defined $clause->{q{.}} ) {
             ### assert: not ref $clause->{q{.}} or ref $clause->{q{.}} eq 'Regexp' and "$clause->{q{.}}" !~ / [^\\] (?:[\\]{2})* [\\][Az] /
             if ( not ref $clause->{q{.}} ) {
                 $clause->{q{.}} = quotemeta $clause->{q{.}};
@@ -100,6 +101,10 @@ sub actions {
             $clause->{q{.}} = qr/[.]$clause->{q{.}}(?:[.]|\z)/;
         }
         foreach my $key ( keys $clause ) {
+            if ( not defined $clause->{$key} ) {
+                delete $clause->{$key};
+                next;
+            }
 
             # fixed string should matches from \A to \z
             if ( not ref $clause->{$key} ) {

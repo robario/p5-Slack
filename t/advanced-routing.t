@@ -13,11 +13,11 @@ use re qw(/msx);
 package MyApp::Web;
 use Slack qw(App Controller);
 
-prep swallow_begin => qr/.*/ => sub {
+prep swallow_begin => {} => sub {
     push @{ res->stash->{callstack} }, 'swallow_begin';
 };
 
-view swallow_finish => qr/.*/ => sub {
+view swallow_finish => {} => sub {
     push @{ res->stash->{callstack} }, 'swallow_finish';
     res->header( 'X-CALLSTACK', join q{,}, @{ ( res->stash->{callstack} ) } );
 };

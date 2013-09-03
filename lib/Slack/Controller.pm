@@ -73,7 +73,6 @@ sub actions {
     };
     foreach my $action ( @{$actions} ) {
         my ( $type, $name, $clause, $code ) = @{$action};
-        ### assert: not ref $name
 
         if ( ref $clause ne 'HASH' ) {
             ### assert: not ref $clause or ref $clause eq 'Regexp' and "$clause" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
@@ -81,10 +80,15 @@ sub actions {
         }
         if ( not exists $clause->{PATH_INFO} ) {
             #### Generate PATH_INFO clause automatically...
-            my $path = delete $clause->{q{/}} // $name;
-            ### assert: not ref $path or ref $path eq 'Regexp'
-            if ( not ref $path ) {
-                $path = quotemeta $path;
+            my $path = delete $clause->{q{/}};
+            if ( defined $path ) {
+                ### assert: not ref $path or ref $path eq 'Regexp'
+                if ( not ref $path ) {
+                    $path = quotemeta $path;
+                }
+            }
+            else {
+                $path = q{.*};
             }
             if ( exists $clause->{q{.}} ) {
                 $path .= '[.]' . $clause->{q{.}};

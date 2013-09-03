@@ -117,6 +117,7 @@ sub prepare_app {
 
 sub call {
     my ( $self, $env ) = @_;
+    #### $env
 
     my $c = Slack::Context->new(
         app => $self,
@@ -135,7 +136,7 @@ sub call {
     #### Preprocessing...
     foreach my $action ( @{ $self->{actions}->{prep} } ) {
         if ( _process_action( $c, $action ) == HTTP_OK ) {
-            ### prep matched: $action->controller . '->' . $action->name
+            ### prep: $action->controller . '->' . $action->name
         }
     }
 
@@ -150,7 +151,7 @@ sub call {
         }
 
         if ( $r == HTTP_OK ) {
-            ### action matched: $action->controller . '->' . $action->name
+            ### action: $action->controller . '->' . $action->name
             $c->action($action);
         }
 
@@ -178,7 +179,7 @@ sub call {
             last;
         }
         if ( _process_action( $c, $action ) == HTTP_OK ) {
-            ### view matched: $action->controller . '->' . $action->name
+            ### view: $action->controller . '->' . $action->name
         }
     }
 
@@ -207,13 +208,15 @@ sub _process_action {
     my %args;
     my @argv;
     foreach my $name ( sort by_clause_priority keys $action->clause ) {
-        #### try matching: '[' . $name . '] ' . ( $c->req->env->{$name} // q{} ) . ' =~ ' . $action->clause->{$name}
-        if ( defined $c->req->env->{$name} and $c->req->env->{$name} =~ $action->clause->{$name} ) {
-            foreach my $i ( 1 .. $#LAST_MATCH_START ) {
-                push @argv, substr $c->req->env->{$name}, $LAST_MATCH_START[$i], $LAST_MATCH_END[$i] - $LAST_MATCH_START[$i];
+        if ( defined $c->req->env->{$name} ) {
+            #### try: sprintf '%s->%s [%s] %s =~ %s', $action->controller, $action->name, $name, $c->req->env->{$name}, $action->clause->{$name}
+            if ( $c->req->env->{$name} =~ $action->clause->{$name} ) {
+                foreach my $i ( 1 .. $#LAST_MATCH_START ) {
+                    push @argv, substr $c->req->env->{$name}, $LAST_MATCH_START[$i], $LAST_MATCH_END[$i] - $LAST_MATCH_START[$i];
+                }
+                %args = ( %args, %LAST_PAREN_MATCH );
+                next;
             }
-            %args = ( %args, %LAST_PAREN_MATCH );
-            next;
         }
         return $PATH_VARIABLES->{$name} // $CGI_VARIABLES->{$name} // HTTP_BAD_REQUEST;
     }

@@ -75,7 +75,10 @@ BEGIN {
                     while ( $data[1]->[$i]->[-1] =~ s{ \Q(?^\E .*? : (.*) \Q)\E}{$1} ) {
                     }
 
-                    # remove escapes not important
+                    # remove all the white spaces caused by /x
+                    $data[1]->[$i]->[-1] =~ s{(?<![\\])\s}{}g;
+
+                    # remove all the escapes not important
                     $data[1]->[$i]->[-1] =~ s{[\\]([-/ ])}{$1}g;
                 }
                 return "\n\e\n"    # un-smart comments sequence

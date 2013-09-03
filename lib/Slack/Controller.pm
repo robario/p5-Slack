@@ -75,6 +75,7 @@ sub actions {
     foreach my $action ( @{$actions} ) {
         my ( $type, $name, $clause, $code ) = @{$action};
 
+        # fixup / clause
         if ( ref $clause ne 'HASH' ) {
             $clause = { q{/} => $clause };
         }
@@ -93,6 +94,8 @@ sub actions {
             }
             $clause->{q{/}} = qr{\A$prefix$clause->{q{/}}\z};
         }
+
+        # fixup . clause
         if ( defined $clause->{q{.}} ) {
             ### assert: not ref $clause->{q{.}} or ref $clause->{q{.}} eq 'Regexp' and "$clause->{q{.}}" !~ / [^\\] (?:[\\]{2})* [\\][Az] /
             if ( not ref $clause->{q{.}} ) {
@@ -100,34 +103,35 @@ sub actions {
             }
             $clause->{q{.}} = qr/[.]$clause->{q{.}}(?:[.]|\z)/;
         }
+
+        # ensure regexp values of all of the clause
         foreach my $key ( keys $clause ) {
             if ( not defined $clause->{$key} ) {
                 delete $clause->{$key};
                 next;
             }
 
-            # fixed string should matches from \A to \z
+            # fixed string should be quotemeta and matched to \A and \z
             if ( not ref $clause->{$key} ) {
                 $clause->{$key} = qr/\A\Q$clause->{$key}\E\z/;
             }
             ### assert: ref $clause->{$key} eq 'Regexp'
         }
 
+        # fixup code
         if ( ref $code eq 'CODE' ) {
             $code = { ( $type eq 'action' ? 'GET' : q{*} ) => $code };
         }
-        if ( ref $code eq 'HASH' ) {
-            ### assert: not exists $code->{HEAD}
-            ### assert: $type ne 'action' or not exists $code->{q{*}}
-            if ( not exists $clause->{REQUEST_METHOD} and not exists $code->{q{*}} ) {
-                $clause->{REQUEST_METHOD} = join q{|}, keys $code;
-                if ( exists $code->{GET} ) {
-                    $clause->{REQUEST_METHOD} .= '|HEAD';
-                }
-                $clause->{REQUEST_METHOD} = qr/\A(?:$clause->{REQUEST_METHOD})\z/;
+        ### assert: ref $code eq 'HASH'
+        ### assert: not exists $code->{HEAD}
+        ### assert: $type ne 'action' or not exists $code->{q{*}}
+        if ( not defined $clause->{REQUEST_METHOD} and not exists $code->{q{*}} ) {
+            $clause->{REQUEST_METHOD} = join q{|}, keys $code;
+            if ( exists $code->{GET} ) {
+                $clause->{REQUEST_METHOD} .= '|HEAD';
             }
+            $clause->{REQUEST_METHOD} = qr/\A(?:$clause->{REQUEST_METHOD})\z/;
         }
-        else { ... }
 
         $action = Slack::Action->new(
             clause     => $clause,

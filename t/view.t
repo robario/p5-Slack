@@ -54,7 +54,7 @@ sub html {
     };
 }
 
-view mobile => { q{.} => qr/mobile/ } => html( WRAPPER => 'wrapper.mobile.tt' );
+view mobile => { q{.} => 'mobile' } => html( WRAPPER => 'wrapper.mobile.tt' );
 
 view html => { q{.} => qr/html?/ } => html;
 

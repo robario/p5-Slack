@@ -52,7 +52,7 @@ sub import {
     foreach my $type (qw(prep action view)) {
         *{ $caller . q{::} . $type } = sub {
             if ( @_ == 2 ) {
-                splice @_, 1, 0, $_[0];
+                splice @_, 1, 0, {};
             }
             ### assert: @_ == 3
             push @{ $caller . '::actions' }, [ $type, @_ ];
@@ -75,32 +75,31 @@ sub actions {
         my ( $type, $name, $clause, $code ) = @{$action};
 
         if ( ref $clause ne 'HASH' ) {
-            ### assert: not ref $clause or ref $clause eq 'Regexp' and "$clause" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
             $clause = { q{/} => $clause };
         }
-        if ( not exists $clause->{PATH_INFO} ) {
-            #### Generate PATH_INFO clause automatically...
-            my $path = delete $clause->{q{/}};
-            if ( defined $path ) {
-                ### assert: not ref $path or ref $path eq 'Regexp'
-                if ( not ref $path ) {
-                    $path = quotemeta $path;
-                }
+        if ( not exists $clause->{PATH_INFO} and not exists $clause->{q{/}} ) {
+            if ( $type eq 'action' ) {
+                $clause->{q{/}} = $name;
             }
-            else {
-                $path = q{.*};
+            elsif ( $prefix ne q{/} ) {
+                $clause->{q{/}} = qr/.*/;
             }
-            if ( exists $clause->{q{.}} ) {
-                $path .= '[.]' . $clause->{q{.}};
+        }
+        if ( exists $clause->{q{/}} ) {
+            ### assert: not ref $clause->{q{/}} or ref $clause->{q{/}} eq 'Regexp' and "$clause->{q{/}}" !~ / [^\\] (?:[\\]{2})* [\\][Az] /
+            if ( not ref $clause->{q{/}} ) {
+                $clause->{q{/}} = quotemeta $clause->{q{/}};
             }
-            $clause->{PATH_INFO} = qr{\A$prefix$path\z}p;
+            $clause->{q{/}} = qr{\A$prefix$clause->{q{/}}\z};
+        }
+        if ( exists $clause->{q{.}} ) {
+            ### assert: not ref $clause->{q{.}} or ref $clause->{q{.}} eq 'Regexp' and "$clause->{q{.}}" !~ / [^\\] (?:[\\]{2})* [\\][Az] /
+            if ( not ref $clause->{q{.}} ) {
+                $clause->{q{.}} = quotemeta $clause->{q{.}};
+            }
+            $clause->{q{.}} = qr/[.]$clause->{q{.}}(?:[.]|\z)/;
         }
         foreach my $key ( keys $clause ) {
-
-            # $clause->{q{.}} will be removed by Slack::App
-            if ( $key eq q{.} ) {
-                next;
-            }
 
             # fixed string should matches from \A to \z
             if ( not ref $clause->{$key} ) {

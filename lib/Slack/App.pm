@@ -23,16 +23,17 @@ use Slack::Request;
 use Slack::Response;
 use Slack::Util qw(new);
 
-my $CGI_VARIABLES = {
-    PATH_INFO      => HTTP_NOT_FOUND,
-    REQUEST_METHOD => HTTP_METHOD_NOT_ALLOWED,
+my $PATH_VARIABLES = {
+    q{/}      => HTTP_NOT_FOUND,
+    q{.}      => HTTP_NOT_FOUND,
+    PATH_INFO => HTTP_NOT_FOUND,
 };
+my $CGI_VARIABLES = { REQUEST_METHOD => HTTP_METHOD_NOT_ALLOWED };
 my %implement;
-my $strip;
 
 sub by_clause_priority {
     return
-         -( ( $a eq 'PATH_INFO' ) <=> ( $b eq 'PATH_INFO' ) )
+         -( exists $PATH_VARIABLES->{$a} <=> exists $PATH_VARIABLES->{$b} )
       || -( exists $CGI_VARIABLES->{$a} <=> exists $CGI_VARIABLES->{$b} )
       || -( $a =~ /\AHTTP_/ <=> $b =~ /\AHTTP_/ )
       || -( $a =~ /\AX_/ <=> $b =~ /\AX_/ )
@@ -45,7 +46,6 @@ sub prepare_app {
     ### Setup Controller...
     my $class = ref $self;
     my @actions;
-    my @strip;
     foreach my $package ( $class, Module::Pluggable::Object->new( search_path => [$class] )->plugins ) {
 
         # load controller
@@ -72,14 +72,9 @@ sub prepare_app {
 
         # collect actions
         foreach my $action ( $package->actions ) {
-            if ( exists $action->clause->{q{.}} ) {
-                push @strip, delete $action->clause->{q{.}};
-            }
             push @actions, $action;
         }
     }
-    ### assert: not grep {$_ eq q{.} or $_ eq q{/}} map {keys $_->clause} @actions
-    $strip = join q{|}, @strip;
 
     # sort and assort actions
     {
@@ -135,6 +130,8 @@ sub call {
         return $c->res->finalize;
     }
 
+    ( $c->req->env->{q{/}}, $c->req->env->{q{.}} ) = $c->req->env->{PATH_INFO} =~ /\A([^.]+)(.+)?\z/;
+
     #### Preprocessing...
     foreach my $action ( @{ $self->{actions}->{prep} } ) {
         if ( _process_action( $c, $action ) == HTTP_OK ) {
@@ -143,42 +140,36 @@ sub call {
     }
 
     #### Ensuring response status...
-    if ( not $c->res->status ) {
-        my $path_info = $c->req->env->{PATH_INFO};
-        if ($strip) {
-            $c->req->env->{PATH_INFO} =~ s/(?:[.](?:$strip))+\z//;
-        }
-        foreach my $action ( @{ $self->{actions}->{action} } ) {
-            my $r = _process_action( $c, $action );
-            if ( $r == HTTP_NOT_FOUND ) {
-                next;
-            }
-
-            if ( $r == HTTP_OK ) {
-                ### action matched: $action->controller . '->' . $action->name
-                $c->action($action);
-            }
-
-            if ( not $c->res->status ) {
-                $c->res->status($r);
-            }
-
-            # urn:ietf:rfc:2616#10.4.6
-            # The method specified in the Request-Line is not allowed for the resource identified by the Request-URI
-            # The response MUST include an Allow header containing a list of valid methods for the requested resource
-            if ( $c->res->status == HTTP_METHOD_NOT_ALLOWED ) {
-                ## no critic qw(RegularExpressions::ProhibitEnumeratedClasses)
-                $c->res->header( Allow => join ', ', grep { /\A[A-Z]+\z/ } keys $action->code );
-            }
-
+    foreach my $action ( @{ $self->{actions}->{action} } ) {
+        if ( $c->res->status ) {
             last;
         }
-        $c->req->env->{PATH_INFO} = $path_info;
-
-        # urn:ietf:rfc:2616#10.4.5 The server has not found anything matching the Request-URI
-        if ( not $c->res->status ) {
-            $c->res->status(HTTP_NOT_FOUND);
+        my $r = _process_action( $c, $action );
+        if ( $r == HTTP_NOT_FOUND ) {
+            next;
         }
+
+        if ( $r == HTTP_OK ) {
+            ### action matched: $action->controller . '->' . $action->name
+            $c->action($action);
+        }
+
+        if ( not $c->res->status ) {
+            $c->res->status($r);
+        }
+
+        # urn:ietf:rfc:2616#10.4.6
+        # The method specified in the Request-Line is not allowed for the resource identified by the Request-URI
+        # The response MUST include an Allow header containing a list of valid methods for the requested resource
+        if ( $c->res->status == HTTP_METHOD_NOT_ALLOWED ) {
+            ## no critic qw(RegularExpressions::ProhibitEnumeratedClasses)
+            $c->res->header( Allow => join ', ', grep { /\A[A-Z]+\z/ } keys $action->code );
+        }
+    }
+
+    # urn:ietf:rfc:2616#10.4.5 The server has not found anything matching the Request-URI
+    if ( not $c->res->status ) {
+        $c->res->status(HTTP_NOT_FOUND);
     }
 
     #### Ensuring response body...
@@ -224,7 +215,7 @@ sub _process_action {
             %args = ( %args, %LAST_PAREN_MATCH );
             next;
         }
-        return $CGI_VARIABLES->{$name} // HTTP_BAD_REQUEST;
+        return $PATH_VARIABLES->{$name} // $CGI_VARIABLES->{$name} // HTTP_BAD_REQUEST;
     }
     if (@argv) {
         $c->req->argv( \@argv );

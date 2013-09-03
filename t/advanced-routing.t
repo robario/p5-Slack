@@ -13,11 +13,11 @@ use re qw(/msx);
 package MyApp::Web;
 use Slack qw(App Controller);
 
-prep swallow_begin => {} => sub {
+prep swallow_begin => sub {
     push @{ res->stash->{callstack} }, 'swallow_begin';
 };
 
-view swallow_finish => {} => sub {
+view swallow_finish => sub {
     push @{ res->stash->{callstack} }, 'swallow_finish';
     res->header( 'X-CALLSTACK', join q{,}, @{ ( res->stash->{callstack} ) } );
 };
@@ -25,12 +25,12 @@ view swallow_finish => {} => sub {
 package MyApp::Web::Admin;
 use Slack qw(Controller);
 
-prep localhost => { q{/} => qr/.*/, REMOTE_ADDR => '127.0.0.1' } => sub {
+prep localhost => { REMOTE_ADDR => '127.0.0.1' } => sub {
     push res->stash->{callstack}, 'localhost';
     req->env->{'myapp.authorized'} = 1;
 };
 
-prep authorize => { q{/} => qr/.*/, QUERY_STRING => qr{\buid=0\b} } => sub {
+prep authorize => { QUERY_STRING => qr{\buid=0\b} } => sub {
     push @{ res->stash->{callstack} }, 'authorize';
     req->env->{'myapp.authorized'} = 1;
 };

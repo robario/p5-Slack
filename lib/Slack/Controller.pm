@@ -103,7 +103,7 @@ sub actions {
 
             # fixed string should matches from \A to \z
             if ( not ref $clause->{$key} ) {
-                $clause->{$key} = qr/\A$clause->{$key}\z/p;
+                $clause->{$key} = qr/\A\Q$clause->{$key}\E\z/;
             }
             ### assert: ref $clause->{$key} eq 'Regexp'
         }

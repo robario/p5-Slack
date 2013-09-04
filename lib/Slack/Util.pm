@@ -49,14 +49,15 @@ BEGIN {
         # Regexp readable
         if ( $dumped =~ s{\A qr/ (.*) / \z}{$1} ) {
             $dumped =~ s{[\\](?=/)}{}g;
-            $dumped =~ s{\A
-                         [(]\Q?^\E          # open paren to clear flags
-                           (?<flags>.*?)
-                           :                # delimiter
-                           (?<regexp>.*)
-                         [)]                # close paren
-                         \z
-                        }{qr{$+{regexp}}$+{flags}};
+            $dumped =~ s{
+                \A
+                [(]\Q?^\E       # open paren to clear flags
+                (?<flags>.*?)
+                :               # delimiter
+                (?<regexp>.*)
+                [)]             # close paren
+                \z
+            }{qr{$+{regexp}}$+{flags}};
         }
 
         return $dumped;
@@ -66,51 +67,60 @@ BEGIN {
         my @args = @_;
         state $table = eval { require Text::Table::Tiny; \&Text::Table::Tiny::table };
 
-        if ($table) {
-            my @data = @{ $args[1]->[0] };
-            if ( $data[0] and $data[0] eq 'rows' and ref $data[1] eq 'ARRAY' and ref $data[1]->[0] eq 'ARRAY' ) {
-                foreach my $i ( 0 .. $#{ $data[1] } ) {
+        if (    $table
+            and defined $args[1]->[0]->[0]
+            and $args[1]->[0]->[0] eq 'rows'
+            and ref $args[1]->[0]->[1] eq 'ARRAY'
+            and ref $args[1]->[0]->[1]->[0] eq 'ARRAY' )
+        {
+            state $NAME  = 2;            # ClauseName
+            state $VALUE = $NAME + 1;    # ClauseValue
+            foreach my $row ( @{ $args[1]->[0]->[1] } ) {
 
-                    # remove all the flags
-                    while (
-                        $data[1]->[$i]->[-1] =~ s{
-                                                  (?<!\0)   # sentinel
-                                                  [(]       # open paren
-                                                  (
-                                                    (?:
-                                                      [^()]*+   # non paren
-                                                      |         # or
-                                                      (?R)      # recurse
-                                                    )*
-                                                  )
-                                                  [)]       # close paren
-                                                 }{
-                                                    my $inner = $1;
-                                                    if ( $inner =~ s/\A[?][^:]+:// ) {
-                                                        $inner;
-                                                    }
-                                                    else {
-                                                        $inner =~ s/\A[?]://;
-                                                        "\0($inner)";
-                                                    }
-                                                 }e
-                      )
-                    {
-                    }
-                    $data[1]->[$i]->[-1] =~ s/\0//g;    # remove sentinel
+                # remove all the flags
+                while (
+                    $row->[$VALUE] =~ s{
+                        (?<!\0)     # sentinel
+                        [(]         # open paren
+                        (
+                          (?:
+                            [^()]*+ # non paren
+                            |       # or
+                            (?R)    # recurse
+                          )*
+                        )
+                        [)]         # close paren
+                    }{
+                        my $inner = $1;
+                        if ( $inner =~ s/\A[?][^:]+(?::|\z)// ) {
+                            $inner;
+                        }
+                        else {
+                            $inner =~ s/\A[?]://;
+                            "\0($inner)";
+                        }
+                    }e
+                  )
+                {
+                }
+                $row->[$VALUE] =~ s/\0//g;    # remove sentinel
 
-                    # remove all the sequence Slack has added
-                    $data[1]->[$i]->[-1] =~ s/\A \Q[.]\E (.*) \Q([.]|\z)\E \z/$1/;      # regexp for .
-                    $data[1]->[$i]->[-1] =~ s/\A (?:[\\]A)? (.*?) (?:[\\]z)? \z/$1/;    # regexp for /
-
-                    # remove all the white spaces and backslashes caused by qr//x
-                    $data[1]->[$i]->[-1] =~ s/(?<![\\])\s//g;
-                    $data[1]->[$i]->[-1] =~ s{[\\]([-/ ])}{$1}g;
+                # remove all the sequence Slack has added
+                $row->[$VALUE] =~ s/\A (?:[\\]A)? (.*?) (?:[\\]z)? \z/$1/;
+                if ( $row->[$NAME] eq q{.} ) {
+                    $row->[$VALUE] =~ s/\A \Q[.]\E (.*) \Q([.]|\z)\E \z/$1/;
+                }
+                elsif ( $row->[$NAME] eq q{/} ) {
+                    $row->[$VALUE] =~ s{\A/}{};
                 }
 
-                # \e is hack for un-smart comments
-                return "\n\e\n" . ( $table->(@data) =~ s/^/### /gr );
+                # remove all the white spaces and backslashes caused by qr//x
+                $row->[$VALUE] =~ s/(?<![\\])\s//g;
+                $row->[$VALUE] =~ s{[\\](?=[- /])}{}g;
             }
+
+            # \e is hack for un-smart comments
+            return "\n\e\n" . ( $table->( @{ $args[1]->[0] } ) =~ s/^/### /gr );
         }
 
         my $dumped = do {

@@ -29,7 +29,6 @@ my $PATH_VARIABLES = {
     PATH_INFO => HTTP_NOT_FOUND,
 };
 my $CGI_VARIABLES = { REQUEST_METHOD => HTTP_METHOD_NOT_ALLOWED };
-my %implement;
 
 sub by_clause_priority {
     return
@@ -45,7 +44,7 @@ sub prepare_app {
 
     ### Setup Controller...
     my $class = ref $self;
-    my @actions;
+    $self->{actions} = { prep => [], action => [], view => [] };
     foreach my $package ( $class, Module::Pluggable::Object->new( search_path => [$class] )->plugins ) {
 
         # load controller
@@ -72,7 +71,7 @@ sub prepare_app {
 
         # collect actions
         foreach my $action ( $package->actions ) {
-            push @actions, $action;
+            push $self->{actions}->{ $action->type }, $action;
         }
     }
 
@@ -82,9 +81,9 @@ sub prepare_app {
         my $by_depth = sub {
             return -( $a->controller->prefix =~ tr[/][] <=> $b->controller->prefix =~ tr[/][] );
         };
-        $self->{actions}->{prep} = [ sort { -$by_depth->() } grep { $_->type eq 'prep' } @actions ];    # breadth first order
-        $self->{actions}->{action} = [ sort $by_depth grep { $_->type eq 'action' } @actions ];         # depth first order
-        $self->{actions}->{view}   = [ sort $by_depth grep { $_->type eq 'view' } @actions ];           # ditto
+        $self->{actions}->{prep}   = [ sort { -$by_depth->() } @{ $self->{actions}->{prep} } ];    # breadth first order
+        $self->{actions}->{action} = [ sort $by_depth @{ $self->{actions}->{action} } ];           # depth first order
+        $self->{actions}->{view}   = [ sort $by_depth @{ $self->{actions}->{view} } ];             # ditto
     }
     my $ttt = sub {
         my @table = ( [qw(Controller Name ClauseName ClauseValue)] );
@@ -92,6 +91,9 @@ sub prepare_app {
             my @row;
             foreach my $name ( sort by_clause_priority keys $action->clause ) {
                 push @row, [ q{}, q{}, $name, $action->clause->{$name} ];
+            }
+            if ( not @row ) {
+                push @row, [ q{}, q{}, q{}, q{} ];
             }
             ( $row[0]->[0], $row[0]->[1] ) = ( $action->controller, $action->name );
             push @table, @row;
@@ -101,16 +103,6 @@ sub prepare_app {
     ### prep: $ttt->( @{ $self->{actions}->{prep} } )
     ### action: $ttt->( @{ $self->{actions}->{action} } )
     ### view: $ttt->( @{ $self->{actions}->{view} } )
-
-    foreach my $action ( @{ $self->{actions}->{action} } ) {
-        foreach my $method ( keys $action->code ) {
-            $implement{$method} = 1;
-        }
-    }
-
-    # urn:ietf:rfc:2616#5.1.1 The methods GET and HEAD MUST be supported by all general-purpose servers
-    # HEAD has been checked by Slack::Controller
-    ### assert: exists $implement{GET}
 
     return;
 }
@@ -125,8 +117,17 @@ sub call {
         res => Slack::Response->new(undef),
     );
 
+    state $implement = {
+        map { $_ => 1 }
+        map { ( $_, $_ eq 'GET' ? ('HEAD') : () ) }
+        map { keys $_->code } @{ $self->{actions}->{action} }
+    };
+
+    # urn:ietf:rfc:2616#5.1.1 The methods GET and HEAD MUST be supported by all general-purpose servers
+    ### assert: exists $implement->{HEAD} and exists $implement->{GET}
+
     # urn:ietf:rfc:2616#10.5.2 The server does not support the functionality required to fulfill the request
-    if ( not exists $implement{ $c->req->method } ) {
+    if ( not exists $implement->{ $c->req->method } ) {
         $c->res->status(HTTP_NOT_IMPLEMENTED);
         return $c->res->finalize;
     }
@@ -196,7 +197,7 @@ sub call {
     }
 
     # urn:ietf:rfc:2616#9.4 the server MUST NOT return a message-body in the response
-    if ( $c->req->method eq 'HEAD' ) {    # Plack::Middleware::Head
+    if ( $c->req->method eq 'HEAD' ) {
         $c->res->body(undef);
     }
 

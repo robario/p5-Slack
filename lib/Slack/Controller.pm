@@ -22,16 +22,16 @@ FILTER_ONLY code => sub {
         '(?<!&)&',                               # symbol table lookup sigil `&` except `&&` op
     );
     state $asis_postfix_re = join q{|}, (
-        '=>',                                    # hash key FIXME: or fat comma
+        '=>',                                    # hash key
     );
     state $asis_re = qr{
-                        (?<asis>
-                          $Filter::Simple::placeholder             # placeholder of literal
-                          |                 [{] $keyword_re [}]    # variable name or hash key
-                          | (?:$asis_prefix_re) $keyword_re
-                          |                     $keyword_re (?:$asis_postfix_re)
-                        )
-                       };
+        (?<asis>
+            $Filter::Simple::placeholder            # placeholder of literal
+          |                 [{] $keyword_re [}]     # variable name or hash key
+          | (?:$asis_prefix_re) $keyword_re
+          |                     $keyword_re (?:$asis_postfix_re)
+        )
+    };
 
     s{ $asis_re | $keyword_re }{
         $LAST_PAREN_MATCH{asis} or do {

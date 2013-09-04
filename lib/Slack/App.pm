@@ -122,7 +122,7 @@ sub call {
     my $c = Slack::Context->new(
         app => $self,
         req => Slack::Request->new($env),
-        res => Slack::Response->new(0),
+        res => Slack::Response->new(undef),
     );
 
     # urn:ietf:rfc:2616#10.5.2 The server does not support the functionality required to fulfill the request
@@ -142,7 +142,7 @@ sub call {
 
     #### Ensuring response status...
     foreach my $action ( @{ $self->{actions}->{action} } ) {
-        if ( $c->res->status ) {
+        if ( defined $c->res->status ) {
             last;
         }
         my $r = _process_action( $c, $action );
@@ -155,7 +155,7 @@ sub call {
             $c->action($action);
         }
 
-        if ( not $c->res->status ) {
+        if ( not defined $c->res->status ) {
             $c->res->status($r);
         }
 
@@ -169,7 +169,7 @@ sub call {
     }
 
     # urn:ietf:rfc:2616#10.4.5 The server has not found anything matching the Request-URI
-    if ( not $c->res->status ) {
+    if ( not defined $c->res->status ) {
         $c->res->status(HTTP_NOT_FOUND);
     }
 

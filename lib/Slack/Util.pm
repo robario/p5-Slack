@@ -1,4 +1,4 @@
-package Slack::Util v0.2.1;
+package Slack::Util v0.2.2;
 use v5.14.0;
 use warnings;
 use encoding::warnings;

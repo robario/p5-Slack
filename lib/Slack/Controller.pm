@@ -1,4 +1,4 @@
-package Slack::Controller v0.6.0;
+package Slack::Controller v0.7.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;

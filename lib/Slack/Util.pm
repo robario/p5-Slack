@@ -71,18 +71,45 @@ BEGIN {
             if ( $data[0] and $data[0] eq 'rows' and ref $data[1] eq 'ARRAY' and ref $data[1]->[0] eq 'ARRAY' ) {
                 foreach my $i ( 0 .. $#{ $data[1] } ) {
 
-                    # respond to recursive flag, sometimes malfunction
-                    while ( $data[1]->[$i]->[-1] =~ s{ \Q(?^\E .*? : (.*) \Q)\E}{$1} ) {
+                    # remove all the flags
+                    while (
+                        $data[1]->[$i]->[-1] =~ s{
+                                                  (?<!\0)   # sentinel
+                                                  [(]       # open paren
+                                                  (
+                                                    (?:
+                                                      [^()]*+   # non paren
+                                                      |         # or
+                                                      (?R)      # recurse
+                                                    )*
+                                                  )
+                                                  [)]       # close paren
+                                                 }{
+                                                    my $inner = $1;
+                                                    if ( $inner =~ s/\A[?][^:]+:// ) {
+                                                        $inner;
+                                                    }
+                                                    else {
+                                                        $inner =~ s/\A[?]://;
+                                                        "\0($inner)";
+                                                    }
+                                                 }e
+                      )
+                    {
                     }
+                    $data[1]->[$i]->[-1] =~ s/\0//g;    # remove sentinel
 
-                    # remove all the white spaces caused by /x
-                    $data[1]->[$i]->[-1] =~ s{(?<![\\])\s}{}g;
+                    # remove all the sequence Slack has added
+                    $data[1]->[$i]->[-1] =~ s/\A \Q[.]\E (.*) \Q([.]|\z)\E \z/$1/;      # regexp for .
+                    $data[1]->[$i]->[-1] =~ s/\A (?:[\\]A)? (.*?) (?:[\\]z)? \z/$1/;    # regexp for /
 
-                    # remove all the escapes not important
+                    # remove all the white spaces and backslashes caused by qr//x
+                    $data[1]->[$i]->[-1] =~ s/(?<![\\])\s//g;
                     $data[1]->[$i]->[-1] =~ s{[\\]([-/ ])}{$1}g;
                 }
-                return "\n\e\n"    # un-smart comments sequence
-                  . ( $table->(@data) =~ s/^/### /gr );
+
+                # \e is hack for un-smart comments
+                return "\n\e\n" . ( $table->(@data) =~ s/^/### /gr );
             }
         }
 

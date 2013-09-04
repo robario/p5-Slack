@@ -1,46 +1,47 @@
-package Slack::Controller v0.6.0;
+package Slack::Controller v0.7.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
 use re qw(/msx);
 
-use Encode qw(find_encoding);
 use English qw(-no_match_vars);
 use Filter::Simple;
 use Slack::Action;
 use Slack::Util;
 
 FILTER_ONLY code => sub {
+    no encoding::warnings;    # Do not decode the literals in the filter. If you use utf8, then please no utf8.
+
     state $keyword_pattern = join q{|}, qw(c req res);
-    state $keyword_re      = qr/ \b (?<keyword>$keyword_pattern) \b /;
-    state $asis_pattern    = join q{|}, (
+    state $keyword_re      = qr/(?<keyword> \s* \b (?:$keyword_pattern) \b \s* )/;
+    state $asis_prefix_re  = join q{|}, (
         ## no critic qw(ValuesAndExpressions::RequireInterpolationOfMetachars)
-        '\0\0',             # mark as literal by Filter::Simple
-        q[{'],              # variable name or hash key
-        '->',               # method call
-        quotemeta q{$#},    # last index op
-        ( sprintf '.?[%s]', quotemeta '$@%*' ),    # symbol table lookup without `&`
-        '(?!<&)&',                                 # symbol table lookup by `&` except `&&` op
+        '->',                 # method call
+        quotemeta q{$#},      # last index sigil
+        ( sprintf '[%s]', quotemeta '$@%*' ),    # symbol table lookup sigil without `&`
+        '(?<!&)&',                               # symbol table lookup sigil `&` except `&&` op
     );
-    state $asis_re = qr/\A (?:$asis_pattern) \z/;
+    state $asis_postfix_re = join q{|}, (
+        '=>',                                    # hash key
+    );
+    state $asis_re = qr{
+        (?<asis>
+            $Filter::Simple::placeholder            # placeholder of literal
+          |                 [{] $keyword_re [}]     # variable name or hash key
+          | (?:$asis_prefix_re) $keyword_re
+          |                     $keyword_re (?:$asis_postfix_re)
+        )
+    };
 
-    my $encoder = find_encoding('UTF-8');          # FIXME: guess encoding
-    $_ = $encoder->decode($_);
-
-    # mark as variable name or hash key
-    s/ { \s* $keyword_re \s* } /{'$LAST_PAREN_MATCH{keyword}'}/g;
-
-    # keyword expansion
-    s{
-      (?<before> \S{0,2} ) \s* \K    # keep because only for checking
-      $keyword_re
-      (?! \s* => )                   # avoid hash key
-    }{
-        my $keyword = $LAST_PAREN_MATCH{keyword};
-        $LAST_PAREN_MATCH{before} =~ $asis_re ? $keyword : q{$} . '_[0]' . ( $keyword eq 'c' ? q{} : "->$keyword" );
+    s{ $asis_re | $keyword_re }{
+        $LAST_PAREN_MATCH{asis} or do {
+            my $keyword = $LAST_PAREN_MATCH{keyword};
+            if ( $keyword !~ /\bc\b/ ) {
+                $keyword =~ s/(\S+)/c->$1/;
+            }
+            $keyword =~ s/\bc\b/\$_[0]/r;
+        };
     }eg;
-
-    $_ = $encoder->encode($_);
 };
 
 sub import {
@@ -51,7 +52,7 @@ sub import {
     foreach my $type (qw(prep action view)) {
         *{ $caller . q{::} . $type } = sub {
             if ( @_ == 2 ) {
-                splice @_, 1, 0, $_[0];
+                splice @_, 1, 0, {};
             }
             ### assert: @_ == 3
             push @{ $caller . '::actions' }, [ $type, @_ ];
@@ -64,8 +65,9 @@ sub actions {
     my $class = shift;
 
     my $prefix = $class->prefix;
-    ### assert: ref $prefix eq 'Regexp' or not ref $prefix and $prefix =~ qr{\A/} and $prefix =~ qr{/\z}
-    ### assert: not ref $prefix or ref $prefix eq 'Regexp' and "$prefix" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
+    ### assert: defined $prefix
+    ### assert: ref $prefix eq 'Regexp' or not ref $prefix and $prefix =~ m{\A / (?:.+/)? \z}
+    ### assert: not ref $prefix or ref $prefix eq 'Regexp' and "$prefix" !~ / [^\\] (?:[\\]{2})* [\\][Az] /
     my $actions = do {
         no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
         *{ $class . '::actions' }{ARRAY};
@@ -73,49 +75,63 @@ sub actions {
     foreach my $action ( @{$actions} ) {
         my ( $type, $name, $clause, $code ) = @{$action};
 
+        # fixup / clause
         if ( ref $clause ne 'HASH' ) {
-            ### assert: not ref $clause or ref $clause eq 'Regexp' and "$clause" !~ qr/ [^\\] (?:[\\]{2})* [\\][Az] /
             $clause = { q{/} => $clause };
         }
-
-        if ( not exists $clause->{PATH_INFO} ) {
-            #### Generate PATH_INFO clause automatically...
-            my $path = delete $clause->{q{/}};
-            if ( defined $path ) {
-                ### assert: not ref $path or ref $path eq 'Regexp'
-                if ( not ref $path ) {
-                    $path = quotemeta $path;
-                }
+        if ( not defined $clause->{PATH_INFO} and not defined $clause->{q{/}} ) {
+            if ( $type eq 'action' ) {
+                $clause->{q{/}} = $name;
             }
-            else {
-                $path = q{.*};
+            elsif ( $prefix ne q{/} ) {
+                $clause->{q{/}} = qr/.*/;
             }
-            if ( exists $clause->{q{.}} ) {
-                $path .= '[.]' . $clause->{q{.}};
-            }
-            $clause->{PATH_INFO} = qr{\A$prefix$path\z}p;
         }
-        foreach my $key ( keys $clause ) {
+        if ( defined $clause->{q{/}} ) {
+            ### assert: not ref $clause->{q{/}} or ref $clause->{q{/}} eq 'Regexp' and "$clause->{q{/}}" !~ / [^\\] (?:[\\]{2})* [\\][Az] /
+            if ( not ref $clause->{q{/}} ) {
+                $clause->{q{/}} = quotemeta $clause->{q{/}};
+            }
+            $clause->{q{/}} = qr{\A$prefix$clause->{q{/}}\z};
+        }
 
-            # $clause->{q{.}} will be removed by Slack::App
-            if ( $key eq q{.} ) {
+        # fixup . clause
+        if ( defined $clause->{q{.}} ) {
+            ### assert: not ref $clause->{q{.}} or ref $clause->{q{.}} eq 'Regexp' and "$clause->{q{.}}" !~ / [^\\] (?:[\\]{2})* [\\][Az] /
+            if ( not ref $clause->{q{.}} ) {
+                $clause->{q{.}} = quotemeta $clause->{q{.}};
+            }
+            $clause->{q{.}} = qr/[.]$clause->{q{.}}(?:[.]|\z)/;
+        }
+
+        # ensure regexp values of all of the clause
+        foreach my $key ( keys $clause ) {
+            if ( not defined $clause->{$key} ) {
+                delete $clause->{$key};
                 next;
             }
 
-            # fixed string should matches from \A to \z
+            # fixed string should be quotemeta and matched to \A and \z
             if ( not ref $clause->{$key} ) {
-                $clause->{$key} = qr/\A$clause->{$key}\z/p;
+                $clause->{$key} = qr/\A\Q$clause->{$key}\E\z/;
             }
             ### assert: ref $clause->{$key} eq 'Regexp'
         }
 
+        # fixup code
         if ( ref $code eq 'CODE' ) {
-            $code = { GET => $code };
+            $code = { ( $type eq 'action' ? 'GET' : q{*} ) => $code };
         }
-        elsif ( ref $code eq 'HASH' ) {
-            ### assert: not exists $code->{HEAD}
+        ### assert: ref $code eq 'HASH'
+        ### assert: not exists $code->{HEAD}
+        ### assert: $type ne 'action' or not exists $code->{q{*}}
+        if ( not defined $clause->{REQUEST_METHOD} and not exists $code->{q{*}} ) {
+            $clause->{REQUEST_METHOD} = join q{|}, keys $code;
+            if ( exists $code->{GET} ) {
+                $clause->{REQUEST_METHOD} .= '|HEAD';
+            }
+            $clause->{REQUEST_METHOD} = qr/\A(?:$clause->{REQUEST_METHOD})\z/;
         }
-        else { ... }
 
         $action = Slack::Action->new(
             clause     => $clause,

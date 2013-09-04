@@ -2,7 +2,7 @@
 eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
   if 0;
 
-package main v0.2.0;
+package main v0.2.1;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
@@ -54,11 +54,12 @@ sub html {
     };
 }
 
-view mobile => { q{.} => qr/mobile/ } => html( WRAPPER => 'wrapper.mobile.tt' );
+view mobile => { q{.} => 'mobile' } => html( WRAPPER => 'wrapper.mobile.tt' );
 
 view html => { q{.} => qr/html?/ } => html;
 
-view json => 'empty.json' => sub {
+# not equals to { q{/} => 'empty', q{.} => 'json' }
+view empty_json => { PATH_INFO => '/empty.json' } => sub {
     res->body('{}');
 };
 
@@ -75,8 +76,8 @@ view plain => { q{.} => 'txt', q{/} => 'foo' } => sub {
     res->body( res->stash->{name} );
 };
 
-view unknown => { q{.} => qr/.*/ } => sub {
-    croak 'This extension is not supported.';
+view unknown => { q{.} => qr/.+/ } => sub {
+    res->body('This extension is not supported.');
 };
 
 view default => qr/.*/ => html;
@@ -135,7 +136,7 @@ sub client {
     }
 
     $res = $cb->( GET '/foo.xml' );
-    like( $res->content, qr/\A\QThis extension is not supported.\E/, 'no view' );
+    is( $res->content, 'This extension is not supported.', 'no view' );
 
     $res = $cb->( GET '/foo.json' );
     is( $res->content, '{"name":"foo"}', 'json view' );

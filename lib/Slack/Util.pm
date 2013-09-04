@@ -1,4 +1,4 @@
-package Slack::Util v0.2.1;
+package Slack::Util v0.2.2;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
@@ -49,14 +49,15 @@ BEGIN {
         # Regexp readable
         if ( $dumped =~ s{\A qr/ (.*) / \z}{$1} ) {
             $dumped =~ s{[\\](?=/)}{}g;
-            $dumped =~ s{\A
-                         [(]\Q?^\E          # open paren to clear flags
-                           (?<flags>.*?)
-                           :                # delimiter
-                           (?<regexp>.*)
-                         [)]                # close paren
-                         \z
-                        }{qr{$+{regexp}}$+{flags}};
+            $dumped =~ s{
+                \A
+                [(]\Q?^\E       # open paren to clear flags
+                (?<flags>.*?)
+                :               # delimiter
+                (?<regexp>.*)
+                [)]             # close paren
+                \z
+            }{qr{$+{regexp}}$+{flags}};
         }
 
         return $dumped;
@@ -66,12 +67,60 @@ BEGIN {
         my @args = @_;
         state $table = eval { require Text::Table::Tiny; \&Text::Table::Tiny::table };
 
-        if ($table) {
-            my @data = @{ $args[1]->[0] };
-            if ( $data[0] and $data[0] eq 'rows' and ref $data[1] eq 'ARRAY' and ref $data[1]->[0] eq 'ARRAY' ) {
-                my $UNSMART_COMMENTS_SEQUENCE = "\n\b\n";
-                return $UNSMART_COMMENTS_SEQUENCE . ( $table->(@data) =~ s/^/### /gr ) . "\n";
+        if (    $table
+            and defined $args[1]->[0]->[0]
+            and $args[1]->[0]->[0] eq 'rows'
+            and ref $args[1]->[0]->[1] eq 'ARRAY'
+            and ref $args[1]->[0]->[1]->[0] eq 'ARRAY' )
+        {
+            state $NAME  = 2;            # ClauseName
+            state $VALUE = $NAME + 1;    # ClauseValue
+            foreach my $row ( @{ $args[1]->[0]->[1] } ) {
+
+                # remove all the flags
+                while (
+                    $row->[$VALUE] =~ s{
+                        (?<!\0)     # sentinel
+                        [(]         # open paren
+                        (
+                          (?:
+                            [^()]*+ # non paren
+                            |       # or
+                            (?R)    # recurse
+                          )*
+                        )
+                        [)]         # close paren
+                    }{
+                        my $inner = $1;
+                        if ( $inner =~ s/\A[?][^:]+(?::|\z)// ) {
+                            $inner;
+                        }
+                        else {
+                            $inner =~ s/\A[?]://;
+                            "\0($inner)";
+                        }
+                    }e
+                  )
+                {
+                }
+                $row->[$VALUE] =~ s/\0//g;    # remove sentinel
+
+                # remove all the sequence Slack has added
+                $row->[$VALUE] =~ s/\A (?:[\\]A)? (.*?) (?:[\\]z)? \z/$1/;
+                if ( $row->[$NAME] eq q{.} ) {
+                    $row->[$VALUE] =~ s/\A \Q[.]\E (.*) \Q([.]|\z)\E \z/$1/;
+                }
+                elsif ( $row->[$NAME] eq q{/} ) {
+                    $row->[$VALUE] =~ s{\A/}{};
+                }
+
+                # remove all the white spaces and backslashes caused by qr//x
+                $row->[$VALUE] =~ s/(?<![\\])\s//g;
+                $row->[$VALUE] =~ s{[\\](?=[- /])}{}g;
             }
+
+            # \e is hack for un-smart comments
+            return "\n\e\n" . ( $table->( @{ $args[1]->[0] } ) =~ s/^/### /gr );
         }
 
         my $dumped = do {

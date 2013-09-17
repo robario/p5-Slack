@@ -14,7 +14,6 @@ use HTTP::Status qw(
   HTTP_NOT_FOUND
   HTTP_METHOD_NOT_ALLOWED
   HTTP_NOT_IMPLEMENTED
-  HTTP_INTERNAL_SERVER_ERROR
 );
 use Module::Load qw(load);
 use Module::Pluggable::Object;
@@ -234,16 +233,13 @@ sub _process_action {
     my $method = $c->req->method eq 'HEAD' ? 'GET' : $c->req->method;
     my $code = $action->code->{$method} // $action->code->{q{*}};
     ### assert: defined $code
-    eval {
-        if ( my $pre = $action->code->{q{^}} ) {
-            $pre->($c);
-        }
-        $code->($c);
-        if ( my $post = $action->code->{q{$}} ) {
-            $post->($c);
-        }
-        1;
-    } or return HTTP_INTERNAL_SERVER_ERROR;
+    if ( my $pre = $action->code->{q{^}} ) {
+        $pre->($c);
+    }
+    $code->($c);
+    if ( my $post = $action->code->{q{$}} ) {
+        $post->($c);
+    }
     return HTTP_OK;
 }
 

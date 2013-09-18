@@ -6,7 +6,7 @@ package main v0.2.1;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/msx);
+use re qw(/amsx);
 
 ## no critic qw(Modules::ProhibitMultiplePackages)
 
@@ -22,7 +22,7 @@ BEGIN {
     eval { require Template; Template->import; } or 'do nothing';
 }
 
-action default => qr{(?<name>.+)} => sub {
+action default => qr/(?<name>.+)/ => sub {
     res->stash->{name} = req->args->{name};
 };
 

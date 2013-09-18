@@ -2,7 +2,7 @@ package Slack::App v0.6.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/msx);
+use re qw(/amsx);
 use parent qw(Plack::Component);
 
 use English qw(-no_match_vars);
@@ -58,7 +58,7 @@ sub prepare_app {
         if ( not $package->can('prefix') ) {
             my $prefix = $package =~ s/\A\Q$class\E//r;
             if ($prefix) {
-                $prefix = join q{/}, map { lc s/(?<=.)\K([[:upper:]])/-$1/gr } split /::/, $prefix;
+                $prefix = join q{/}, map { lc s/ (?<=.) (?=\p{PosixUpper}) /-/gr } split /::/, $prefix;
             }
             $prefix = $prefix . q{/};
 
@@ -163,8 +163,7 @@ sub call {
         # The method specified in the Request-Line is not allowed for the resource identified by the Request-URI
         # The response MUST include an Allow header containing a list of valid methods for the requested resource
         if ( $c->res->status == HTTP_METHOD_NOT_ALLOWED ) {
-            ## no critic qw(RegularExpressions::ProhibitEnumeratedClasses)
-            $c->res->header( Allow => join ', ', grep { /\A[A-Z]+\z/ } keys $action->code );
+            $c->res->header( Allow => join ', ', grep { /\A \p{PosixUpper}+ \z/ } keys $action->code );
         }
     }
 

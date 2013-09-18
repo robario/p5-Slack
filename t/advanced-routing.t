@@ -6,7 +6,7 @@ package main v0.2.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/msx);
+use re qw(/amsx);
 
 ## no critic qw(Modules::ProhibitMultiplePackages)
 
@@ -30,7 +30,7 @@ prep localhost => { REMOTE_ADDR => '127.0.0.1' } => sub {
     req->env->{'myapp.authorized'} = 1;
 };
 
-prep authorize => { QUERY_STRING => qr{\buid=0\b} } => sub {
+prep authorize => { QUERY_STRING => qr/ \b uid=0 \b / } => sub {
     push @{ res->stash->{callstack} }, 'authorize';
     req->env->{'myapp.authorized'} = 1;
 };

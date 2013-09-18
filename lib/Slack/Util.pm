@@ -2,7 +2,7 @@ package Slack::Util v0.2.2;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/msx);
+use re qw(/amsx);
 use version;
 
 use Carp qw(carp);
@@ -51,13 +51,13 @@ BEGIN {
             $dumped =~ s{[\\](?=/)}{}g;
             $dumped =~ s{
                 \A
-                [(]\Q?^\E       # open paren to clear flags
-                (?<flags>.*?)
-                :               # delimiter
+                \Q(?^\E             # open parenthesis to clear modifiers
+                (?<modifiers>.*?)
+                :                   # delimiter
                 (?<regexp>.*)
-                [)]             # close paren
+                \Q)\E               # close parenthesis
                 \z
-            }{qr{$+{regexp}}$+{flags}};
+            }{qr{$+{regexp}}$+{modifiers}};
         }
 
         return $dumped;
@@ -81,15 +81,15 @@ BEGIN {
                 while (
                     $row->[$VALUE] =~ s{
                         (?<!\0)     # sentinel
-                        [(]         # open paren
+                        [(]         # open parenthesis
                         (
                           (?:
-                            [^()]*+ # non paren
+                            [^()]*+ # non parenthesis
                             |       # or
                             (?R)    # recurse
                           )*
                         )
-                        [)]         # close paren
+                        [)]         # close parenthesis
                     }{
                         my $inner = $1;
                         if ( $inner =~ s/\A[?][^:]+(?::|\z)// ) {
@@ -129,7 +129,7 @@ BEGIN {
         };
 
         # decode Percent-Encoding
-        $dumped =~ s/ [\\]x{ ([\dA-F]+) } /chr hex sprintf '%04s', $1/egi;
+        $dumped =~ s/ [\\]x{ (\p{PosixXDigit}+) } /chr hex sprintf '%04s', $1/egi;
 
         # backslash readable
         $dumped =~ s/[\\](?=[\\])//g;

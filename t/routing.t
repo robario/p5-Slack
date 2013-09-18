@@ -6,7 +6,7 @@ package main v0.2.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/msx);
+use re qw(/amsx);
 
 use Module::Loaded qw(mark_as_loaded);
 BEGIN { mark_as_loaded('MyApp::Web'); }

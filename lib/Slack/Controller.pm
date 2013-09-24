@@ -1,8 +1,8 @@
-package Slack::Controller v0.7.0;
+package Slack::Controller v0.8.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/msx);
+use re qw(/amsx);
 
 use English qw(-no_match_vars);
 use Filter::Simple;
@@ -52,7 +52,7 @@ sub import {
     foreach my $type (qw(prep action view)) {
         *{ $caller . q{::} . $type } = sub {
             if ( @_ == 2 ) {
-                splice @_, 1, 0, {};
+                splice @_, 1, 0, $type eq 'action' ? { q{/} => $_[0] } : {};
             }
             ### assert: @_ == 3
             push @{ $caller . '::actions' }, [ $type, @_ ];
@@ -75,18 +75,19 @@ sub actions {
     foreach my $action ( @{$actions} ) {
         my ( $type, $name, $clause, $code ) = @{$action};
 
-        # fixup / clause
+        # ensure clause is a hash
         if ( ref $clause ne 'HASH' ) {
             $clause = { q{/} => $clause };
         }
+
+        # to add a prefix even if unconditional
         if ( not defined $clause->{PATH_INFO} and not defined $clause->{q{/}} ) {
-            if ( $type eq 'action' ) {
-                $clause->{q{/}} = $name;
-            }
-            elsif ( $prefix ne q{/} ) {
+            if ( $prefix ne q{/} ) {    # because meaningless
                 $clause->{q{/}} = qr/.*/;
             }
         }
+
+        # fixup / clause
         if ( defined $clause->{q{/}} ) {
             ### assert: not ref $clause->{q{/}} or ref $clause->{q{/}} eq 'Regexp' and "$clause->{q{/}}" !~ / [^\\] (?:[\\]{2})* [\\][Az] /
             if ( not ref $clause->{q{/}} ) {

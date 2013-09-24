@@ -1,8 +1,8 @@
-package Slack::Util v0.2.2;
+package Slack::Util v0.2.3;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/msx);
+use re qw(/amsx);
 use version;
 
 use Carp qw(carp);
@@ -51,13 +51,13 @@ BEGIN {
             $dumped =~ s{[\\](?=/)}{}g;
             $dumped =~ s{
                 \A
-                [(]\Q?^\E       # open paren to clear flags
-                (?<flags>.*?)
-                :               # delimiter
+                \Q(?^\E             # open parenthesis to clear modifiers
+                (?<modifiers>.*?)
+                :                   # delimiter
                 (?<regexp>.*)
-                [)]             # close paren
+                \Q)\E               # close parenthesis
                 \z
-            }{qr{$+{regexp}}$+{flags}};
+            }{qr{$+{regexp}}$+{modifiers}};
         }
 
         return $dumped;
@@ -76,47 +76,65 @@ BEGIN {
             state $NAME  = 2;            # ClauseName
             state $VALUE = $NAME + 1;    # ClauseValue
             foreach my $row ( @{ $args[1]->[0]->[1] } ) {
+                if ( ref $row->[$VALUE] ne 'Regexp' ) {
+                    next;
+                }
 
-                # remove all the flags
+                # remove all the sequence Slack has added
+                if ( $row->[$NAME] eq q{.} ) {
+                    $row->[$VALUE] =~ s/ \Q(?^amsx:[.]\E (.*) \Q(?:[.]|\z))\E \z/$1/;
+                }
+                else {
+                    $row->[$VALUE] =~ s/\A \Q(?^amsx:\A\E (.*) \Q\z)\E \z/$1/;
+                    if ( $row->[$NAME] eq q{/} ) {
+                        $row->[$VALUE] =~ s{\A/}{};
+                    }
+                }
+
                 while (
                     $row->[$VALUE] =~ s{
                         (?<!\0)     # sentinel
-                        [(]         # open paren
+                        [(]         # open parenthesis
                         (
                           (?:
-                            [^()]*+ # non paren
+                            [^()]*+ # non parenthesis
                             |       # or
                             (?R)    # recurse
                           )*
                         )
-                        [)]         # close paren
+                        [)]         # close parenthesis
                     }{
                         my $inner = $1;
-                        if ( $inner =~ s/\A[?][^:]+(?::|\z)// ) {
-                            $inner;
+
+                        # remove modifiers
+                        $inner =~ s/\A \Q?^\E? [adlupimsx]* (?:-[imsx]+)? (?|:(.+)|()) \z/$1/;
+
+                        # remove named capture
+                        $inner =~ s/\A [?]<.*?>//;
+
+                        my $quantifiers = { map { $_ => 1 } qw(* + ?), "\x{7b}" };    # quantifiers
+                        my $after = substr $row->[$VALUE], ( pos $row->[$VALUE] ) + ( length $inner ) + 2, 1;
+                        if (
+                            ( index $inner =~ s/[(][^()]*[)]//gr, q{|} ) != -1        # contains alternation
+                            or exists $quantifiers->{$after}                          # quantifier specified
+                          )
+                        {
+                            $inner = "\0($inner)";
                         }
-                        else {
-                            $inner =~ s/\A[?]://;
-                            "\0($inner)";
-                        }
+                        $inner;
                     }e
                   )
                 {
+                    # do nothing
                 }
                 $row->[$VALUE] =~ s/\0//g;    # remove sentinel
 
-                # remove all the sequence Slack has added
-                $row->[$VALUE] =~ s/\A (?:[\\]A)? (.*?) (?:[\\]z)? \z/$1/;
-                if ( $row->[$NAME] eq q{.} ) {
-                    $row->[$VALUE] =~ s/\A \Q[.]\E (.*) \Q([.]|\z)\E \z/$1/;
-                }
-                elsif ( $row->[$NAME] eq q{/} ) {
-                    $row->[$VALUE] =~ s{\A/}{};
-                }
+                $row->[$VALUE] =~ s/\A[(](.*)[)]\z/$1/g;    # remove outermost parenthesis
 
-                # remove all the white spaces and backslashes caused by qr//x
+                # remove all the white spaces, comments and backslashes caused by qr//x
+                $row->[$VALUE] =~ s/(?<![\\])[#][^]]*$//g;
                 $row->[$VALUE] =~ s/(?<![\\])\s//g;
-                $row->[$VALUE] =~ s{[\\](?=[- /])}{}g;
+                $row->[$VALUE] =~ s{[\\](?=[- ./])}{}g;
             }
 
             # \e is hack for un-smart comments
@@ -129,7 +147,7 @@ BEGIN {
         };
 
         # decode Percent-Encoding
-        $dumped =~ s/ [\\]x{ ([\dA-F]+) } /chr hex sprintf '%04s', $1/egi;
+        $dumped =~ s/ [\\]x{ (\p{PosixXDigit}+) } /chr hex sprintf '%04s', $1/egi;
 
         # backslash readable
         $dumped =~ s/[\\](?=[\\])//g;

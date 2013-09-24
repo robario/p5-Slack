@@ -2,11 +2,11 @@
 eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
   if 0;
 
-package main v0.2.0;
+package main v0.2.1;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/msx);
+use re qw(/amsx);
 
 use Module::Loaded qw(mark_as_loaded);
 BEGIN { mark_as_loaded('MyApp::Web'); }
@@ -34,19 +34,19 @@ package MyApp::Web::Hello;
 use Slack qw(Controller);
 
 action index => q{} => sub {
-    res->body('Hello->index');
+    res->body('H->index');
 };
 
 action world => sub {
-    res->body('hello, world');
+    res->body('H->world');
 };
 
 action name => qr{(?<name>[^/]+)} => sub {
-    res->body( sprintf 'Hello, %s!', req->args->{name} );
+    res->body( sprintf 'H->name(%s)', req->args->{name} );
 };
 
 action default => qr/(.+)/ => sub {
-    res->body( sprintf 'Hello->default with %s', req->argv->[0] );
+    res->body( sprintf 'H->default(%s)', req->argv->[0] );
 };
 
 1;
@@ -57,9 +57,10 @@ use Slack qw(Controller);
 
 action index => q{} => {
     GET => sub {
-        res->body('Howdy, World!');
+        res->body('H::W->index');
     },
-    POST => sub { },
+    POST => sub {    # dummy for implements POST
+    },
 };
 
 1;
@@ -84,34 +85,19 @@ use Test::More;
 
 sub client {
     my $cb = shift;
-    my $res;
+    is( $cb->( GET q{/} )->content, 'RootExample->index',    'index' );               # / = / + ''
+    is( $cb->( POST q{/} )->code,   HTTP_METHOD_NOT_ALLOWED, 'not *allowed*' );
+    is( $cb->( DELETE q{/} )->code, HTTP_NOT_IMPLEMENTED,    'not *implemented*' );
 
-    $res = $cb->( GET q{/} );
-    is( $res->content, 'RootExample->index', 'index' );    # '/' = '/' + ''
+    is( $cb->( GET '/hello' )->code,     HTTP_NOT_FOUND, 'without trailing-slash' );    # /hello = / + hello
+    is( $cb->( GET '/hello/' )->content, 'H->index',     'with trailing-slash' );       # /hello/ = /hello/ + ''
 
-    $res = $cb->( POST q{/} );
-    is( $res->code, HTTP_METHOD_NOT_ALLOWED, 'not allowed request method' );
+    is( $cb->( GET '/hello/Slack' )->content,  'H->name(Slack)',     'match [^/]+' );        # /hello/Slack = /hello/ + Slack
+    is( $cb->( GET '/hello/Slack/' )->content, 'H->default(Slack/)', 'not match [^/]+' );    # /hello/Slack/ = /hello/ + Slack/
 
-    $res = $cb->( DELETE q{/} );
-    is( $res->code, HTTP_NOT_IMPLEMENTED, 'not implemented request method' );
-
-    $res = $cb->( GET '/hello' );
-    is( $res->code, HTTP_NOT_FOUND, 'without trailing-slash' );    # '/hello' = '/' + 'hello'
-
-    $res = $cb->( GET '/hello/' );
-    is( $res->content, 'Hello->index', 'with trailing-slash' );    # '/hello/' = '/hello/' + ''
-
-    $res = $cb->( GET '/hello/Slack' );
-    is( $res->content, 'Hello, Slack!', 'Hello->name matched' );    # '/hello/Slack' = '/hello/' + 'Slack'
-
-    $res = $cb->( GET '/hello/Slack/' );
-    is( $res->content, 'Hello->default with Slack/', 'qr/.+/ also matches slash' );    # '/hello/Slack/' = '/hello/' + 'Slack/'
-
-    $res = $cb->( GET '/hello/world' );
-    is( $res->content, 'hello, world', 'Hello->world higher priority than Hello->name' );    # '/hello/world' = '/hello/' + 'world'
-
-    $res = $cb->( GET '/hello/world/' );
-    is( $res->content, 'Howdy, World!', 'Hello->name does not match' );    # '/hello/world/' = '/hello/world/' + ''
+    is( $cb->( GET '/hello/world' )->content,  'H->world',    'priority than H->name' );     # /hello/world = /hello/ + world
+    is( $cb->( GET '/hello/world/' )->content, 'H::W->index', 'furthermore H->world' );      # /hello/world/ = /hello/world/ + ''
+    is( $cb->( GET '/hello/world/foo' )->content, 'H->default(world/foo)', 'uncaught' );    # /hello/world/foo = /hello/ + world/foo
 
     return;
 }

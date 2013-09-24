@@ -2,11 +2,11 @@
 eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
   if 0;
 
-package main v0.2.1;
+package main v0.2.2;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/msx);
+use re qw(/amsx);
 
 ## no critic qw(Modules::ProhibitMultiplePackages)
 
@@ -14,6 +14,7 @@ package MyApp;
 use Carp qw(croak);
 use Encode qw(find_encoding);
 use FindBin qw($Bin);
+use HTTP::Status qw(HTTP_UNSUPPORTED_MEDIA_TYPE);
 use JSON::PP;
 use Module::Loaded qw(is_loaded);
 use Slack qw(App Controller);
@@ -22,7 +23,7 @@ BEGIN {
     eval { require Template; Template->import; } or 'do nothing';
 }
 
-action default => qr{(?<name>.+)} => sub {
+action default => qr/(?<name>.+)/ => sub {
     res->stash->{name} = req->args->{name};
 };
 
@@ -77,10 +78,11 @@ view plain => { q{.} => 'txt', q{/} => 'foo' } => sub {
 };
 
 view unknown => { q{.} => qr/.+/ } => sub {
-    res->body('This extension is not supported.');
+    res->status(HTTP_UNSUPPORTED_MEDIA_TYPE);
+    res->body(q{});
 };
 
-view default => qr/.*/ => html;
+view default => html;
 
 package MyApp::Baz;
 use Slack qw(Controller);
@@ -95,17 +97,17 @@ use autodie;
 use Encode qw(encode);
 use FindBin qw($Bin);
 use HTTP::Request::Common qw(GET);
+use HTTP::Status qw(HTTP_UNSUPPORTED_MEDIA_TYPE);
 use Module::Loaded qw(is_loaded);
 use Plack::Test qw(test_psgi);
 use Test::More;
 
 sub client {
     my $cb = shift;
-    my $res;
 
   SKIP: {
         if ( not is_loaded('Template') ) {
-            skip( 'require Template', 3 );    ## no critic qw(ValuesAndExpressions::ProhibitMagicNumbers)
+            skip( 'require Template', 0 );
         }
         my %format;
         foreach my $name (qw(pc mobile)) {
@@ -115,8 +117,7 @@ sub client {
             $format{$name} =~ s/\Q[% content %]\E/%s/;
         }
 
-        $res = $cb->( GET '/foo' );
-        is( $res->content, ( sprintf $format{'pc'}, 'foo' ), 'default view' );
+        is( $cb->( GET '/foo' )->content, ( sprintf $format{'pc'}, 'foo' ), 'default view' );
 
         my $unicode = do { use utf8; '日本語'; };
         my %pe = map {
@@ -126,36 +127,27 @@ sub client {
               }
         } qw(UTF-8 cp932);
 
-        $res = $cb->( GET sprintf '/%s.mobile', $pe{'UTF-8'} );
-        is( $res->content, encode( 'cp932', sprintf $format{'mobile'}, $unicode ), 'mobile view' );
+        is(
+            $cb->( GET sprintf '/%s.mobile', $pe{'UTF-8'} )->content,
+            encode( 'cp932', sprintf $format{'mobile'}, $unicode ),
+            'mobile view'
+        );
       TODO: {
             local $TODO = 'should guess encoding';
-            $res = $cb->( GET sprintf '/%s.mobile', $pe{cp932} );
-            is( $res->content, encode( 'cp932', sprintf $format{'mobile'}, $unicode ), 'mobile view' );
+            is(
+                $cb->( GET sprintf '/%s.mobile', $pe{cp932} )->content,
+                encode( 'cp932', sprintf $format{'mobile'}, $unicode ),
+                'mobile view'
+            );
         }
     }
-
-    $res = $cb->( GET '/foo.xml' );
-    is( $res->content, 'This extension is not supported.', 'no view' );
-
-    $res = $cb->( GET '/foo.json' );
-    is( $res->content, '{"name":"foo"}', 'json view' );
-
-    $res = $cb->( GET '/empty.json' );
-    is( $res->content, '{}', 'the specific path view' );
-
-    $res = $cb->( GET '/bar/foo.json' );
-    is( $res->content, '{"name":"bar/foo"}', 'inherit view' );
-
-    $res = $cb->( GET '/baz/foo.json' );
-    is( $res->content, qq{{\n   "name" : "baz/foo"\n}\n}, 'override view' );
-
-    $res = $cb->( GET '/foo.txt' );
-    is( $res->content, 'foo', 'plain view matches foo.txt only' );
-
-    $res = $cb->( GET '/bar.txt' );
-    like( $res->content, qr/\A\QThis extension is not supported.\E/, 'plain view does not matches except /foo.txt' );
-
+    is( $cb->( GET '/foo.xml' )->code,         HTTP_UNSUPPORTED_MEDIA_TYPE,       'no view' );
+    is( $cb->( GET '/foo.json' )->content,     '{"name":"foo"}',                  'json view' );
+    is( $cb->( GET '/empty.json' )->content,   '{}',                              'the specific path view' );
+    is( $cb->( GET '/bar/foo.json' )->content, '{"name":"bar/foo"}',              'inherit view' );
+    is( $cb->( GET '/baz/foo.json' )->content, qq{{\n   "name" : "baz/foo"\n}\n}, 'override view' );
+    is( $cb->( GET '/foo.txt' )->content,      'foo',                             'plain view matches foo.txt only' );
+    is( $cb->( GET '/bar.txt' )->code,         HTTP_UNSUPPORTED_MEDIA_TYPE,       'plain view does not matches except /foo.txt' );
     return;
 }
 

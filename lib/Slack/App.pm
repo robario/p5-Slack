@@ -1,8 +1,8 @@
-package Slack::App v0.6.0;
+package Slack::App v0.6.1;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/msx);
+use re qw(/amsx);
 use parent qw(Plack::Component);
 
 use English qw(-no_match_vars);
@@ -14,7 +14,6 @@ use HTTP::Status qw(
   HTTP_NOT_FOUND
   HTTP_METHOD_NOT_ALLOWED
   HTTP_NOT_IMPLEMENTED
-  HTTP_INTERNAL_SERVER_ERROR
 );
 use Module::Load qw(load);
 use Module::Pluggable::Object;
@@ -59,7 +58,7 @@ sub prepare_app {
         if ( not $package->can('prefix') ) {
             my $prefix = $package =~ s/\A\Q$class\E//r;
             if ($prefix) {
-                $prefix = join q{/}, map { lc s/(?<=.)\K([[:upper:]])/-$1/gr } split /::/, $prefix;
+                $prefix = join q{/}, map { lc s/ (?<=.) (?=\p{PosixUpper}) /-/gr } split /::/, $prefix;
             }
             $prefix = $prefix . q{/};
 
@@ -164,8 +163,7 @@ sub call {
         # The method specified in the Request-Line is not allowed for the resource identified by the Request-URI
         # The response MUST include an Allow header containing a list of valid methods for the requested resource
         if ( $c->res->status == HTTP_METHOD_NOT_ALLOWED ) {
-            ## no critic qw(RegularExpressions::ProhibitEnumeratedClasses)
-            $c->res->header( Allow => join ', ', grep { /\A[A-Z]+\z/ } keys $action->code );
+            $c->res->header( Allow => join ', ', grep { /\A \p{PosixUpper}+ \z/ } keys $action->code );
         }
     }
 
@@ -234,16 +232,13 @@ sub _process_action {
     my $method = $c->req->method eq 'HEAD' ? 'GET' : $c->req->method;
     my $code = $action->code->{$method} // $action->code->{q{*}};
     ### assert: defined $code
-    eval {
-        if ( my $pre = $action->code->{q{^}} ) {
-            $pre->($c);
-        }
-        $code->($c);
-        if ( my $post = $action->code->{q{$}} ) {
-            $post->($c);
-        }
-        1;
-    } or return HTTP_INTERNAL_SERVER_ERROR;
+    if ( my $pre = $action->code->{q{^}} ) {
+        $pre->($c);
+    }
+    $code->($c);
+    if ( my $post = $action->code->{q{$}} ) {
+        $post->($c);
+    }
     return HTTP_OK;
 }
 

@@ -48,7 +48,7 @@ action 'POST only' => {
     POST => sub { }
 };
 
-action 'bad request' => { HTTP_COOKIE => 'bar' } => sub { };
+action 'bad request' => { q{/} => 'bad request', HTTP_COOKIE => 'bar' } => sub { };
 
 package T;
 use FindBin qw($Bin);

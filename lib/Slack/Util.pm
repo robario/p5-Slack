@@ -112,10 +112,14 @@ BEGIN {
                         # remove named capture
                         $inner =~ s/\A [?]<.*?>//;
 
+                        # remove embedded code
+                        $inner =~ s/\A [?] [{] .* [}] \z//;
+
                         my $quantifiers = { map { $_ => 1 } qw(* + ?), "\x{7b}" };    # quantifiers
                         my $after = substr $row->[$VALUE], ( pos $row->[$VALUE] ) + ( length $inner ) + 2, 1;
                         if (
                             ( index $inner =~ s/[(][^()]*[)]//gr, q{|} ) != -1        # contains alternation
+                            or $inner =~ /\A [?]{2} [{] .* [}] \z/                    # is interpolation code
                             or exists $quantifiers->{$after}                          # quantifier specified
                           )
                         {

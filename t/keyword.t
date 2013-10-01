@@ -4,20 +4,23 @@ eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
 
 ## no critic qw(Modules::ProhibitMultiplePackages)
 package MyApp;
+## no critic qw(TestingAndDebugging::RequireUseWarnings)
+## no critic qw(TestingAndDebugging::RequireUseStrict)
 no warnings;    ## no critic qw(TestingAndDebugging::ProhibitNoWarnings)
+
 use Slack qw(Controller);
 
-## no critic qw(TestingAndDebugging::RequireUseStrict TestingAndDebugging::RequireUseWarnings)
 ## no critic qw(Subroutines::ProhibitAmpersandSigils References::ProhibitDoubleSigils)
+
 sub method {
 
     # various pattern
     c;
     req;
     res;
-    c->req;    # lhs is replaced but rhs is a method call is as it is
-    { c => c };    # hash key is as it is
-    $foo->{c};     # hash key is as it is
+    c->req;     # lhs is replaced but rhs is a method call is as it is
+    { c => c }; # hash key is as it is
+    $foo->{c};  # hash key is as it is
     { c->req => c };    # lhs is not a bareword, so treat with expression
     $foo = c;           # assignment
     ac;
@@ -39,12 +42,13 @@ sub method {
     $#{c};
 
     # strange spaces
-    # (please don't tidy here)
+    #<<<
     $ c ;
     @ c ;
     % c ;
     & c ;
     * c ;
+    # $# c;    # syntax error
     ${ c } ;
     @{ c } ;
     %{ c } ;
@@ -64,13 +68,15 @@ sub method {
     1|c;
     0 || c;
     0||c;
+    #>>>
 
     return;
 }
 
 sub todo {
 
-    # (please don't tidy here)
+    # strange spaces
+    #<<<
     1 & c;
     1&c;
     1 % c;
@@ -79,6 +85,7 @@ sub todo {
     1*c;
     undef//c;
     undef // c;
+    #>>>
 
     return;
 }
@@ -92,20 +99,29 @@ use re qw(/amsx);
 use B::Deparse;
 use Test::More;
 
-# FIXME: B::Deparse ignored all comments, so could not test for Smart::Comments
-
+# FIXME: B::Deparse ignores all comments, so could not test for Smart::Comments
 sub deparse {
     my $coderef = shift;
     my $text    = B::Deparse->new->coderef2text($coderef);
-    $text =~ s/\A\Q{\E\s*\Qpackage MyApp;\E\s*\Qno warnings;\E\s*//;
-    $text =~ s/\s*\Qreturn;\E\s*\Q}\E\z//;
-    return split /\n(?:[ ]*)/, $text;
+    $text =~ s/^[ ]*//g;    # remove indent
+    $text =~ s{
+        \A
+        \Q{
+package MyApp;
+no warnings;
+\E
+        (.*)
+        \Qreturn;
+}\E
+        \z
+    }{$1};
+    return split /\R/, $text;
 }
 
+## no critic qw(ValuesAndExpressions::RequireInterpolationOfMetachars)
 is_deeply(
     [ deparse( \&MyApp::method ) ],
     [
-        ## no critic qw(ValuesAndExpressions::RequireInterpolationOfMetachars)
         # various pattern
         '$_[0];',
         '$_[0]->req;',
@@ -146,7 +162,6 @@ is_deeply(
 TODO: {
     local $TODO = 'hard syntax';
     my @expected = (
-        ## no critic qw(ValuesAndExpressions::RequireInterpolationOfMetachars)
         '1 & $_[0];'      => 'misunderstood subroutine',
         '1 & $_[0];'      => 'misunderstood subroutine',
         '1 % $_[0];'      => 'misunderstood hash variable',

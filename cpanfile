@@ -1,12 +1,12 @@
-on configure => sub {
-    requires 'Module::Build' => '0.4004';
-    requires 'Module::CPANfile';
-    requires 'autodie';
-    requires 'encoding::warnings';
-    requires 'warnings';
-};
-
+requires 'encoding::warnings';
+requires 'parent';
+requires 'perl' => 'v5.14.0';
+requires 're' => '0.18';
+requires 'sort';
+requires 'version' => '0.77';
+requires 'warnings';
 requires 'Carp';
+requires 'Class::Struct';
 requires 'Data::Dumper';
 requires 'Encode';
 requires 'English';
@@ -18,14 +18,17 @@ requires 'Plack::Component';
 requires 'Plack::Request';
 requires 'Plack::Response';
 requires 'Plack::Util::Accessor';
-requires 'parent';
-requires 're' => '0.18';
-requires 'sort';
-requires 'version';
 recommends 'Smart::Comments';
 recommends 'Text::Table::Tiny';
 
+on configure => sub {
+    requires 'autodie';
+    requires 'Module::Build';
+};
+
 on test => sub {
+    requires 'bytes';
+    requires 'utf8';
     requires 'B::Deparse';
     requires 'FindBin';
     requires 'HTTP::Request::Common';
@@ -33,7 +36,5 @@ on test => sub {
     requires 'Module::Loaded';
     requires 'Plack::Test';
     requires 'Test::More';
-    requires 'bytes';
-    requires 'utf8';
-    suggests 'Template';
+    recommends 'Template';
 };

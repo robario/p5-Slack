@@ -13,4 +13,5 @@
 /MYMETA.yml
 /_build/
 /blib/
+/local/
 /opt/

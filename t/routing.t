@@ -6,10 +6,13 @@ package main v0.2.1;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/amsx);
 
+use re qw(/amsx);
 use Module::Loaded qw(mark_as_loaded);
-BEGIN { mark_as_loaded('MyApp::Web'); }
+
+BEGIN {
+    mark_as_loaded('MyApp::Web');
+}
 
 ## no critic qw(Modules::ProhibitMultiplePackages)
 
@@ -76,7 +79,7 @@ my $app = MyApp::Web->new;
 # up to here
 #
 
-package T;
+package main;
 use FindBin qw($Bin);
 use HTTP::Request::Common qw(GET POST DELETE);
 use HTTP::Status qw(:constants);

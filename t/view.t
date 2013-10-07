@@ -6,6 +6,7 @@ package main v0.2.2;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
+
 use re qw(/amsx);
 
 ## no critic qw(Modules::ProhibitMultiplePackages)
@@ -92,7 +93,7 @@ view 'json override' => { q{.} => 'json' } => sub {
     res->body( $json->encode( res->stash ) );
 };
 
-package T;
+package main;
 use autodie;
 use Encode qw(encode);
 use FindBin qw($Bin);

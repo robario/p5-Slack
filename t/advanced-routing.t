@@ -6,6 +6,7 @@ package main v0.2.1;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
+
 use re qw(/amsx);
 
 ## no critic qw(Modules::ProhibitMultiplePackages)
@@ -50,7 +51,7 @@ action 'POST only' => {
 
 action 'bad request' => { q{/} => 'bad request', HTTP_COOKIE => 'bar' } => sub { };
 
-package T;
+package main;
 use FindBin qw($Bin);
 use HTTP::Request::Common qw(GET POST);
 use HTTP::Status qw(:constants);

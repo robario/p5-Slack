@@ -62,7 +62,7 @@ sub prepare_app {
             }
             $prefix = $prefix . q{/};
 
-            no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+            no strict qw(refs);    ## no critic qw(ProhibitNoStrict)
             *{ $package . '::prefix' } = sub {
                 return $prefix;
             };

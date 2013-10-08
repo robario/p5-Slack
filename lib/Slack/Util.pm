@@ -17,7 +17,7 @@ BEGIN {
 }
 
 BEGIN {
-    no warnings qw(redefine);    ## no critic qw(TestingAndDebugging::ProhibitNoWarnings)
+    no warnings qw(redefine);    ## no critic qw(ProhibitNoWarnings)
 
     my $patch_for = sub {
         my ( $class, $version ) = @_;
@@ -33,8 +33,9 @@ BEGIN {
     $patch_for->( 'Data::Dumper'    => '2.145' );
     $patch_for->( 'Smart::Comments' => '1.000005' );
 
+    ## no critic qw(ProtectPrivateVars)
+
     # define human-readable dump
-    ## no critic qw(Variables::ProtectPrivateVars)
     my $dd_dump = \&Data::Dumper::_dump;
     my $hr_dump = sub {
         my @args = @_;
@@ -201,7 +202,7 @@ sub import {
 
     my $caller = caller;
     foreach my $method (@arg) {
-        no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+        no strict qw(refs);    ## no critic qw(ProhibitNoStrict)
         *{ $caller . q{::} . $method } = *{ __PACKAGE__ . q{::} . $method }{CODE};
     }
 

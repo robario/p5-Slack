@@ -14,7 +14,7 @@ BEGIN {
     mark_as_loaded('MyApp::Web');
 }
 
-## no critic qw(Modules::ProhibitMultiplePackages)
+## no critic qw(ProhibitMultiplePackages)
 
 1;
 

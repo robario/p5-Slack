@@ -16,7 +16,7 @@ sub import {
         load $component;
         $component->import;
         {
-            no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+            no strict qw(refs);    ## no critic qw(ProhibitNoStrict)
             push @{ $caller . '::ISA' }, $component;
             if ( $component eq 'Slack::App' and not *{ $caller . '::import' }{CODE} ) {
                 *{ $caller . '::import' } = sub {

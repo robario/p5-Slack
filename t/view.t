@@ -9,7 +9,7 @@ use encoding::warnings;
 
 use re qw(/amsx);
 
-## no critic qw(Modules::ProhibitMultiplePackages)
+## no critic qw(ProhibitMultiplePackages)
 
 package MyApp;
 use Carp qw(croak);

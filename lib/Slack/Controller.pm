@@ -15,7 +15,7 @@ FILTER_ONLY code => sub {
     state $keyword_pattern = join q{|}, qw(c req res);
     state $keyword_re      = qr/(?<keyword> \s* \b (?:$keyword_pattern) \b \s* )/;
     state $asis_prefix_re  = join q{|}, (
-        ## no critic qw(ValuesAndExpressions::RequireInterpolationOfMetachars)
+        ## no critic qw(RequireInterpolationOfMetachars)
         '->',                 # method call
         quotemeta q{$#},      # last index sigil
         ( sprintf '[%s]', quotemeta '$@%*' ),    # symbol table lookup sigil without `&`
@@ -47,7 +47,7 @@ FILTER_ONLY code => sub {
 sub import {
     ### assert: caller eq 'Slack'
     my $caller = caller 1;
-    no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+    no strict qw(refs);    ## no critic qw(ProhibitNoStrict)
     *{ $caller . '::actions' } = [];
     foreach my $type (qw(prep action view)) {
         *{ $caller . q{::} . $type } = sub {
@@ -69,7 +69,7 @@ sub actions {
     ### assert: ref $prefix eq 'Regexp' or not ref $prefix and $prefix =~ m{\A / (?:.+/)? \z}
     ### assert: not ref $prefix or ref $prefix eq 'Regexp' and "$prefix" !~ / [^\\] (?:[\\]{2})* [\\][Az] /
     my $actions = do {
-        no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+        no strict qw(refs);    ## no critic qw(ProhibitNoStrict)
         *{ $class . '::actions' }{ARRAY};
     };
     foreach my $action ( @{$actions} ) {

@@ -30,7 +30,7 @@ sub deparse {
     return split /\R/, $text;
 }
 
-## no critic qw(ValuesAndExpressions::RequireInterpolationOfMetachars)
+## no critic qw(RequireInterpolationOfMetachars)
 is_deeply(
     [ deparse( \&MyApp::method ) ],
     [
@@ -91,16 +91,12 @@ TODO: {
 
 done_testing;
 
-package MyApp;    ## no critic qw(Modules::ProhibitMultiplePackages)
-no strict         ## no critic qw(TestingAndDebugging::ProhibitNoStrict TestingAndDebugging::ProhibitProlongedStrictureOverride)
-  qw(
-  subs
-  vars
-);
-no warnings qw(ambiguous reserved void);    ## no critic qw(TestingAndDebugging::ProhibitNoWarnings)
+package MyApp;                              ## no critic qw(ProhibitMultiplePackages)
+no strict qw(subs vars);                    ## no critic qw(ProhibitNoStrict ProhibitProlongedStrictureOverride)
+no warnings qw(ambiguous reserved void);    ## no critic qw(ProhibitNoWarnings)
 use Slack qw(Controller);
 
-## no critic qw(References::ProhibitDoubleSigils Subroutines::ProhibitAmpersandSigils)
+## no critic qw(ProhibitDoubleSigils ProhibitAmpersandSigils)
 sub method {
 
     # various pattern

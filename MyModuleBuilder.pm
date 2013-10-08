@@ -6,7 +6,7 @@ use encoding::warnings;
 use autodie qw(open);
 use parent qw(Module::Build);
 
-## no critic qw(NamingConventions::Capitalization)
+## no critic qw(Capitalization)
 
 sub ACTION_manifest_skip {
     my $self = shift;

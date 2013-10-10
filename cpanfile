@@ -38,3 +38,7 @@ on test => sub {
     requires 'Test::More';
     recommends 'Template';
 };
+
+on develop => sub {
+    recommends 'Test::Perl::Critic';
+};

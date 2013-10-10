@@ -40,5 +40,7 @@ on test => sub {
 };
 
 on develop => sub {
+    requires 'File::Find';
+    recommends 'Devel::SawAmpersand';
     recommends 'Test::Perl::Critic';
 };

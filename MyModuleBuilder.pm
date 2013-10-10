@@ -8,6 +8,14 @@ use parent qw(Module::Build);
 
 ## no critic qw(Capitalization)
 
+sub ACTION_manifest {
+    my $self = shift;
+    $self->depends_on('manifest_skip');
+    unlink 'MANIFEST';
+    $self->SUPER::ACTION_manifest;
+    return;
+}
+
 sub ACTION_manifest_skip {
     my $self = shift;
     unlink 'MANIFEST.SKIP';

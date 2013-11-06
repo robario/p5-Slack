@@ -10,4 +10,8 @@ use Class::Struct (
     res    => 'Slack::Response',
 );
 
+sub c {
+    return shift;
+}
+
 1;

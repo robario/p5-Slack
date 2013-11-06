@@ -1,7 +1,7 @@
 requires 'encoding::warnings';
 requires 'parent';
 requires 'perl' => 'v5.14.0';
-requires 're' => '0.18';
+requires 're'   => '0.18';
 requires 'sort';
 requires 'version' => '0.77';
 requires 'warnings';
@@ -10,7 +10,6 @@ requires 'Class::Struct';
 requires 'Data::Dumper';
 requires 'Encode';
 requires 'English';
-requires 'Filter::Simple';
 requires 'HTTP::Status';
 requires 'Module::Load';
 requires 'Module::Pluggable::Object';
@@ -29,7 +28,6 @@ on configure => sub {
 on test => sub {
     requires 'bytes';
     requires 'utf8';
-    requires 'B::Deparse';
     requires 'FindBin';
     requires 'HTTP::Request::Common';
     requires 'JSON::PP';

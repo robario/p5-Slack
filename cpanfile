@@ -3,11 +3,8 @@ requires 'parent';
 requires 'perl' => 'v5.14.0';
 requires 're'   => '0.18';
 requires 'sort';
-requires 'version' => '0.77';
 requires 'warnings';
-requires 'Carp';
 requires 'Class::Struct';
-requires 'Data::Dumper';
 requires 'Encode';
 requires 'English';
 requires 'HTTP::Status';
@@ -17,6 +14,7 @@ requires 'Plack::Component';
 requires 'Plack::Request';
 requires 'Plack::Response';
 requires 'Plack::Util::Accessor';
+recommends 'Data::Dumper';
 recommends 'Smart::Comments';
 recommends 'Text::Table::Tiny';
 
@@ -28,6 +26,7 @@ on configure => sub {
 on test => sub {
     requires 'bytes';
     requires 'utf8';
+    requires 'Carp';
     requires 'FindBin';
     requires 'HTTP::Request::Common';
     requires 'JSON::PP';
@@ -38,6 +37,7 @@ on test => sub {
 };
 
 on develop => sub {
+    requires 'CPAN::Meta::Requirements';
     requires 'File::Find';
     recommends 'Devel::SawAmpersand';
     recommends 'Test::Perl::Critic';

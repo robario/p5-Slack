@@ -2,12 +2,8 @@ package Slack::Util v0.2.3;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/amsx);
-use version;
 
-use Carp qw(carp);
-use Data::Dumper;
-use Encode qw(find_encoding);
+use re qw(/amsx);
 
 BEGIN {
     # enable Smart::Comments for ownself
@@ -19,19 +15,12 @@ BEGIN {
 BEGIN {
     no warnings qw(redefine);    ## no critic qw(ProhibitNoWarnings)
 
-    my $patch_for = sub {
-        my ( $class, $version ) = @_;
-        if ( version->parse($version) < version->parse( $class->VERSION ) ) {
-            carp( sprintf 'Please check the patch for %s-%s, installed version %s is higher', $class, $version, $class->VERSION );
-        }
-    };
-
     # Smart::Comments enhancer
     if ( not $INC{'Smart/Comments.pm'} ) {
         return;
     }
-    $patch_for->( 'Data::Dumper'    => '2.145' );
-    $patch_for->( 'Smart::Comments' => '1.000005' );
+
+    require Data::Dumper;
 
     ## no critic qw(ProtectPrivateVars)
 

@@ -11,24 +11,29 @@ use parent qw(Module::Build);
 sub ACTION_manifest {
     my $self = shift;
     $self->depends_on('manifest_skip');
-    unlink 'MANIFEST';
+    $self->delete_filetree('MANIFEST');
     $self->SUPER::ACTION_manifest(@_);
     return;
 }
 
 sub ACTION_manifest_skip {
     my $self = shift;
-    unlink 'MANIFEST.SKIP';
+    $self->delete_filetree('MANIFEST.SKIP');
     $self->SUPER::ACTION_manifest_skip(@_);
-    open my $fh, '>>', 'MANIFEST.SKIP';
-    $fh->print(<<'EOT');
+    my $addition = sprintf <<'EOT', $self->dist_name;
 
-# Avoid archives of this distribution
-\bSlack-v[\d\.\_]+  # bugfix Module::Build-0.4007
+# Avoid archives of this distribution (bugfix for Module::Build-0.4007)
+\b%s-v?[\d\.\_]+
 
 # Avoid local modules
-^local/
+^cpanfile.snapshot$
+^local\b
+
+# Avoid Test::Perl::Critic files.
+^perltidy.LOG$
 EOT
+    open my $fh, '>>', 'MANIFEST.SKIP';
+    $fh->print($addition);
     $fh->close;
     return;
 }
@@ -37,17 +42,12 @@ sub ACTION_realclean {
     my $self = shift;
     $self->add_to_cleanup(
         qw(
-          *.ERR
-          *.LOG
-          *.bak
-          *.tdy
-          *.tmp
-          MANIFEST
-          MANIFEST.SKIP
-          META.json
-          META.yml
-          Slack-*.tar.gz
-          )
+          cpanfile.snapshot
+          perltidy.LOG
+          MANIFEST.bak
+          MANIFEST.SKIP.bak
+          ),
+        $self->dist_dir . '.tar.gz',
     );
     $self->SUPER::ACTION_realclean(@_);
     return;

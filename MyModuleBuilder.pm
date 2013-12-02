@@ -12,7 +12,7 @@ sub ACTION_manifest {
     my $self = shift;
     $self->depends_on('manifest_skip');
     unlink 'MANIFEST';
-    $self->SUPER::ACTION_manifest;
+    $self->SUPER::ACTION_manifest(@_);
     return;
 }
 

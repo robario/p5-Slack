@@ -1,9 +1,13 @@
-*.ERR
-*.LOG
 *.bak
 *.tdy
 *.tmp
+*.ERR
+*.LOG
 /*Slack*
+/blib/
+/local/
+/opt/
+/_build/
 /Build
 /MANIFEST
 /MANIFEST.SKIP
@@ -11,7 +15,3 @@
 /META.yml
 /MYMETA.json
 /MYMETA.yml
-/_build/
-/blib/
-/local/
-/opt/

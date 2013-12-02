@@ -2,9 +2,8 @@ package Slack::Controller v0.8.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/amsx);
 
-use English qw(-no_match_vars);
+use re qw(/amsx);
 use Slack::Action;
 use Slack::Util;
 
@@ -24,7 +23,7 @@ sub import {
     }
 
     foreach my $keyword (qw(c req res)) {
-        *{ $caller . "::$keyword" } = sub {
+        *{ $caller . q{::} . $keyword } = sub {
             { package DB; () = caller 1; }    ## no critic qw(ProhibitMultiplePackages)
             return $DB::args[0]->$keyword;    ## no critic qw(ProhibitPackageVars)
         };

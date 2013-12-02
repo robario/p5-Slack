@@ -20,6 +20,7 @@ t/advanced-routing.t
 t/routing.t
 t/view.t
 xt/perl-critic.t
+xt/pod.t
 xt/sawampersand.t
 xt/Slack-Util.t
 xt/strict.t

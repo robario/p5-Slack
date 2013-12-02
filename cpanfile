@@ -40,5 +40,6 @@ on develop => sub {
     requires 'File::Find';
     recommends 'Devel::SawAmpersand';
     recommends 'Test::Perl::Critic';
+    recommends 'Test::Pod';
     recommends 'Test::Strict';
 };

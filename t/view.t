@@ -9,6 +9,11 @@ use encoding::warnings;
 
 use re qw(/amsx);
 
+my %format = (
+    pc     => "<!DOCTYPE html>\n<title>%s</title>",
+    mobile => '<html><head><meta http-equiv="Content-Type" content="text/html; charset=Shift_JIS"><title>%s</title></head></html>',
+);
+
 ## no critic qw(ProhibitMultiplePackages)
 
 package MyApp;
@@ -20,45 +25,27 @@ use JSON::PP;
 use Module::Loaded qw(is_loaded);
 use Slack qw(App Controller);
 
-BEGIN {
-    eval { require Template; Template->import; } or 'do nothing';
-}
-
 action default => qr/(?<name>.+)/ => sub {
     res->stash->{name} = req->args->{name};
 };
 
 sub html {
-    my @args = @_;
-
-    if ( not is_loaded('Template') ) {
-        return sub { };
-    }
-
-    my $tt = Template->new(
-        {
-            INCLUDE_PATH => "$Bin/view",
-            WRAPPER      => 'wrapper.pc.tt',
-            ENCODING     => 'UTF-8',
-            @args,
-        }
-    );
-    my $encoder = find_encoding( $tt->service->{WRAPPER}->[0] eq 'wrapper.mobile.tt' ? 'cp932' : 'UTF-8' );
+    my ($format) = @_;
+    my $encoder = find_encoding( $format eq 'mobile' ? 'cp932' : 'UTF-8' );
+    my %template = ( default => '[% name %]' );
 
     return sub {
-        my $template = c->action->controller->prefix =~ s{\A/}{}r . c->action->name . '.tt';
-        $tt->process( $template, { c => c, %{ res->stash } }, \my $output ) or croak $tt->error;
+        my $output = sprintf $format{$format}, $template{ c->action->name } =~ s/ \Q[%\E \s* (\S+) \s* \Q%]\E /res->stash->{$1}/egr;
         res->body( $encoder->encode($output) );
-
         if ( not length res->content_type ) {
             res->content_type('text/html; charset=UTF-8');
         }
     };
 }
 
-view mobile => { q{.} => 'mobile' } => html( WRAPPER => 'wrapper.mobile.tt' );
+view mobile => { q{.} => 'mobile' } => html('mobile');
 
-view html => { q{.} => qr/html?/ } => html;
+view html => { q{.} => qr/html?/ } => html('pc');
 
 # not equals to { q{/} => 'empty', q{.} => 'json' }
 view empty_json => { PATH_INFO => '/empty.json' } => sub {
@@ -83,7 +70,7 @@ view unknown => { q{.} => qr/.+/ } => sub {
     res->body(q{});
 };
 
-view default => html;
+view default => html('pc');
 
 package MyApp::Baz;
 use Slack qw(Controller);
@@ -106,42 +93,30 @@ use Test::More;
 sub client {
     my $cb = shift;
 
-  SKIP: {
-        if ( not is_loaded('Template') ) {
-            skip( 'require Template', 0 );
-        }
-        my %format;
-        foreach my $name (qw(pc mobile)) {
-            open my $fh, q{<:encoding(UTF-8)}, "$Bin/view/wrapper.$name.tt";
-            $fh->sysread( $format{$name} = q{}, -s $fh );
-            $fh->close;
-            $format{$name} =~ s/\Q[% content %]\E/%s/;
-        }
+    is( $cb->( GET '/foo' )->content, ( sprintf $format{'pc'}, 'foo' ), 'default view' );
 
-        is( $cb->( GET '/foo' )->content, ( sprintf $format{'pc'}, 'foo' ), 'default view' );
+    my $unicode = do { use utf8; '日本語'; };
+    my %pe = map {
+        $_ => do {
+            use bytes;
+            encode( $_, $unicode ) =~ s/([^\w ])/'%' . ( unpack 'H2', $1 )/egr =~ tr/ /+/r;
+          }
+    } qw(UTF-8 cp932);
 
-        my $unicode = do { use utf8; '日本語'; };
-        my %pe = map {
-            $_ => do {
-                use bytes;
-                encode( $_, $unicode ) =~ s/([^\w ])/'%' . ( unpack 'H2', $1 )/egr =~ tr/ /+/r;
-              }
-        } qw(UTF-8 cp932);
-
+    is(
+        $cb->( GET sprintf '/%s.mobile', $pe{'UTF-8'} )->content,
+        encode( 'cp932', sprintf $format{'mobile'}, $unicode ),
+        'mobile view'
+    );
+  TODO: {
+        local $TODO = 'should guess encoding';
         is(
-            $cb->( GET sprintf '/%s.mobile', $pe{'UTF-8'} )->content,
+            $cb->( GET sprintf '/%s.mobile', $pe{cp932} )->content,
             encode( 'cp932', sprintf $format{'mobile'}, $unicode ),
             'mobile view'
         );
-      TODO: {
-            local $TODO = 'should guess encoding';
-            is(
-                $cb->( GET sprintf '/%s.mobile', $pe{cp932} )->content,
-                encode( 'cp932', sprintf $format{'mobile'}, $unicode ),
-                'mobile view'
-            );
-        }
     }
+
     is( $cb->( GET '/foo.xml' )->code,         HTTP_UNSUPPORTED_MEDIA_TYPE,       'no view' );
     is( $cb->( GET '/foo.json' )->content,     '{"name":"foo"}',                  'json view' );
     is( $cb->( GET '/empty.json' )->content,   '{}',                              'the specific path view' );

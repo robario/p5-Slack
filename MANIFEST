@@ -1,6 +1,7 @@
 .perlcriticrc
 .perltidyrc
 Build.PL
+Changes
 cpanfile
 lib/Slack.pm
 lib/Slack/Action.pm
@@ -19,6 +20,7 @@ README
 t/advanced-routing.t
 t/routing.t
 t/view.t
+xt/cpan-changes.t
 xt/perl-critic.t
 xt/pod.t
 xt/sawampersand.t

@@ -33,6 +33,7 @@ on test => sub {
     requires 'Module::Loaded';
     requires 'Plack::Test';
     requires 'Test::More';
+    requires 'Test::Warnings';
 };
 
 on develop => sub {

@@ -89,6 +89,7 @@ use HTTP::Status qw(HTTP_UNSUPPORTED_MEDIA_TYPE);
 use Module::Loaded qw(is_loaded);
 use Plack::Test qw(test_psgi);
 use Test::More;
+use Test::Warnings;
 
 sub client {
     my $cb = shift;

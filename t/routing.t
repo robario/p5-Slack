@@ -85,6 +85,7 @@ use HTTP::Request::Common qw(GET POST DELETE);
 use HTTP::Status qw(:constants);
 use Plack::Test qw(test_psgi);
 use Test::More;
+use Test::Warnings;
 
 sub client {
     my $cb = shift;

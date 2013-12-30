@@ -20,7 +20,7 @@ recommends 'Text::Table::Tiny';
 
 on configure => sub {
     requires 'autodie';
-    requires 'Module::Build' => '>= 0.3800, < 0.4200';
+    requires 'Module::Build' => '>= 0.3800, != 0.4200';
 };
 
 on test => sub {

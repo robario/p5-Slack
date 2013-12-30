@@ -1,4 +1,5 @@
 /blib
+/cover_db
 /cpanfile.snapshot
 /local
 /perltidy.LOG

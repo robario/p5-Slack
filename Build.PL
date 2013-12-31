@@ -11,7 +11,7 @@ use MyModuleBuilder;
 
 MyModuleBuilder->new(
     module_name        => 'Slack',
-    configure_requires => { 'Module::Build' => 0 },
+    configure_requires => { 'Module::Build' => '0.3800' },
     requires           => { 'Plack' => 0 },
     license            => 'perl',
     create_license     => 1,

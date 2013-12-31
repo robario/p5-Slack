@@ -1,9 +1,9 @@
-package Slack::Request v0.3.2;
+package Slack::Request v0.3.3;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use parent qw(Plack::Request);
 
+use parent qw(Plack::Request);
 use Encode qw(find_encoding);
 use Plack::Util::Accessor qw(args argv);
 use Slack::Util;

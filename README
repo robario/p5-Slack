@@ -1,0 +1,55 @@
+NAME
+    Slack - A slacked web application framework based on Plack
+
+VERSION
+    This document describes Slack version v0.4.0
+
+SYNOPSIS
+      $ cat app.psgi
+      use MyApp::Web;
+      MyApp::Web->new;
+
+      $ cat MyApp/Web.pm
+      package MyApp::Web;
+      use Slack qw(App);
+      1;
+
+      $ cat MyApp/Web/Hello.pm
+      package MyApp::Web::Hello;
+      use Slack qw(Controller);
+      action world => sub {
+          res->body('Hello, world!');
+      };
+      1;
+
+      $ plackup
+      HTTP::Server::PSGI: Accepting connections at http://0:5000/
+
+      $ curl http://127.0.0.1:5000/hello/world
+      Hello, world!
+
+DESCRIPTION
+SUBROUTINES/METHODS
+DIAGNOSTICS
+CONFIGURATION AND ENVIRONMENT
+    Slack requires no configuration files or environment variables.
+
+DEPENDENCIES
+    None.
+
+INCOMPATIBILITIES
+    None reported.
+
+BUGS AND LIMITATIONS
+    Please report any bugs or feature requests through the web interface at
+    <https://github.com/robario/p5-Slack/issues>. I will be notified, and
+    then you'll automatically be notified of progress on your bug as I make
+    changes.
+
+AUTHOR
+    robario <webmaster@robario.com>
+
+LICENSE AND COPYRIGHT
+    This module is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself. See perlartistic.
+

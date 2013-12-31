@@ -2,16 +2,19 @@
 eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
   if 0;
 
-package main v0.2.1;
+package main v0.2.2;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
+
 use re qw(/amsx);
-
 use Module::Loaded qw(mark_as_loaded);
-BEGIN { mark_as_loaded('MyApp::Web'); }
 
-## no critic qw(Modules::ProhibitMultiplePackages)
+BEGIN {
+    mark_as_loaded('MyApp::Web');
+}
+
+## no critic qw(ProhibitMultiplePackages)
 
 1;
 
@@ -76,12 +79,13 @@ my $app = MyApp::Web->new;
 # up to here
 #
 
-package T;
+package main;
 use FindBin qw($Bin);
 use HTTP::Request::Common qw(GET POST DELETE);
 use HTTP::Status qw(:constants);
 use Plack::Test qw(test_psgi);
 use Test::More;
+use Test::Warnings;
 
 sub client {
     my $cb = shift;

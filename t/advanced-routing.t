@@ -2,13 +2,14 @@
 eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
   if 0;
 
-package main v0.2.1;
+package main v0.2.2;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
+
 use re qw(/amsx);
 
-## no critic qw(Modules::ProhibitMultiplePackages)
+## no critic qw(ProhibitMultiplePackages)
 
 package MyApp::Web;
 use Slack qw(App Controller);
@@ -50,12 +51,13 @@ action 'POST only' => {
 
 action 'bad request' => { q{/} => 'bad request', HTTP_COOKIE => 'bar' } => sub { };
 
-package T;
+package main;
 use FindBin qw($Bin);
 use HTTP::Request::Common qw(GET POST);
 use HTTP::Status qw(:constants);
 use Plack::Test qw(test_psgi);
 use Test::More;
+use Test::Warnings;
 
 sub client {
     my $cb = shift;

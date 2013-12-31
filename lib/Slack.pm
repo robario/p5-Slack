@@ -1,4 +1,4 @@
-package Slack v0.9.0;
+package Slack v0.10.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
@@ -16,7 +16,7 @@ sub import {
         load $component;
         $component->import;
         {
-            no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+            no strict qw(refs);    ## no critic qw(ProhibitNoStrict)
             push @{ $caller . '::ISA' }, $component;
             if ( $component eq 'Slack::App' and not *{ $caller . '::import' }{CODE} ) {
                 *{ $caller . '::import' } = sub {

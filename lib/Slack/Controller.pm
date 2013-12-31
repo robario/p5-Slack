@@ -1,53 +1,16 @@
-package Slack::Controller v0.8.0;
+package Slack::Controller v0.9.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/amsx);
 
-use English qw(-no_match_vars);
-use Filter::Simple;
+use re qw(/amsx);
 use Slack::Action;
 use Slack::Util;
-
-FILTER_ONLY code => sub {
-    no encoding::warnings;    # Do not decode the literals in the filter. If you use utf8, then please no utf8.
-
-    state $keyword_pattern = join q{|}, qw(c req res);
-    state $keyword_re      = qr/(?<keyword> \s* \b (?:$keyword_pattern) \b \s* )/;
-    state $asis_prefix_re  = join q{|}, (
-        ## no critic qw(ValuesAndExpressions::RequireInterpolationOfMetachars)
-        '->',                 # method call
-        quotemeta q{$#},      # last index sigil
-        ( sprintf '[%s]', quotemeta '$@%*' ),    # symbol table lookup sigil without `&`
-        '(?<!&)&',                               # symbol table lookup sigil `&` except `&&` op
-    );
-    state $asis_postfix_re = join q{|}, (
-        '=>',                                    # hash key
-    );
-    state $asis_re = qr{
-        (?<asis>
-            $Filter::Simple::placeholder            # placeholder of literal
-          |                 [{] $keyword_re [}]     # variable name or hash key
-          | (?:$asis_prefix_re) $keyword_re
-          |                     $keyword_re (?:$asis_postfix_re)
-        )
-    };
-
-    s{ $asis_re | $keyword_re }{
-        $LAST_PAREN_MATCH{asis} or do {
-            my $keyword = $LAST_PAREN_MATCH{keyword};
-            if ( $keyword !~ /\bc\b/ ) {
-                $keyword =~ s/(\S+)/c->$1/;
-            }
-            $keyword =~ s/\bc\b/\$_[0]/r;
-        };
-    }eg;
-};
 
 sub import {
     ### assert: caller eq 'Slack'
     my $caller = caller 1;
-    no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+    no strict qw(refs);    ## no critic qw(ProhibitNoStrict ProhibitProlongedStrictureOverride)
     *{ $caller . '::actions' } = [];
     foreach my $type (qw(prep action view)) {
         *{ $caller . q{::} . $type } = sub {
@@ -58,6 +21,14 @@ sub import {
             push @{ $caller . '::actions' }, [ $type, @_ ];
         };
     }
+
+    foreach my $keyword (qw(c req res)) {
+        *{ $caller . q{::} . $keyword } = sub {
+            { package DB; () = caller 1; }    ## no critic qw(ProhibitMultiplePackages)
+            return $DB::args[0]->$keyword;    ## no critic qw(ProhibitPackageVars)
+        };
+    }
+
     return;
 }
 
@@ -69,7 +40,7 @@ sub actions {
     ### assert: ref $prefix eq 'Regexp' or not ref $prefix and $prefix =~ m{\A / (?:.+/)? \z}
     ### assert: not ref $prefix or ref $prefix eq 'Regexp' and "$prefix" !~ / [^\\] (?:[\\]{2})* [\\][Az] /
     my $actions = do {
-        no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+        no strict qw(refs);    ## no critic qw(ProhibitNoStrict)
         *{ $class . '::actions' }{ARRAY};
     };
     foreach my $action ( @{$actions} ) {

@@ -1,19 +1,19 @@
-package Slack::App v0.6.1;
+package Slack::App v0.6.2;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/amsx);
-use parent qw(Plack::Component);
 
+use parent qw(Plack::Component);
+use re qw(/amsx);
 use English qw(-no_match_vars);
 use HTTP::Status qw(
   is_client_error
   status_message
-  HTTP_OK
   HTTP_BAD_REQUEST
-  HTTP_NOT_FOUND
   HTTP_METHOD_NOT_ALLOWED
+  HTTP_NOT_FOUND
   HTTP_NOT_IMPLEMENTED
+  HTTP_OK
 );
 use Module::Load qw(load);
 use Module::Pluggable::Object;
@@ -62,7 +62,7 @@ sub prepare_app {
             }
             $prefix = $prefix . q{/};
 
-            no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+            no strict qw(refs);    ## no critic qw(ProhibitNoStrict)
             *{ $package . '::prefix' } = sub {
                 return $prefix;
             };

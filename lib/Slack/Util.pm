@@ -1,13 +1,9 @@
-package Slack::Util v0.2.3;
+package Slack::Util v0.2.4;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-use re qw(/amsx);
-use version;
 
-use Carp qw(carp);
-use Data::Dumper;
-use Encode qw(find_encoding);
+use re qw(/amsx);
 
 BEGIN {
     # enable Smart::Comments for ownself
@@ -17,24 +13,18 @@ BEGIN {
 }
 
 BEGIN {
-    no warnings qw(redefine);    ## no critic qw(TestingAndDebugging::ProhibitNoWarnings)
-
-    my $patch_for = sub {
-        my ( $class, $version ) = @_;
-        if ( version->parse($version) < version->parse( $class->VERSION ) ) {
-            carp( sprintf 'Please check the patch for %s-%s, installed version %s is higher', $class, $version, $class->VERSION );
-        }
-    };
+    no warnings qw(redefine);    ## no critic qw(ProhibitNoWarnings)
 
     # Smart::Comments enhancer
     if ( not $INC{'Smart/Comments.pm'} ) {
         return;
     }
-    $patch_for->( 'Data::Dumper'    => '2.145' );
-    $patch_for->( 'Smart::Comments' => '1.000005' );
+
+    require Data::Dumper;
+
+    ## no critic qw(ProtectPrivateVars)
 
     # define human-readable dump
-    ## no critic qw(Variables::ProtectPrivateVars)
     my $dd_dump = \&Data::Dumper::_dump;
     my $hr_dump = sub {
         my @args = @_;
@@ -112,10 +102,14 @@ BEGIN {
                         # remove named capture
                         $inner =~ s/\A [?]<.*?>//;
 
+                        # remove embedded code
+                        $inner =~ s/\A [?] [{] .* [}] \z//;
+
                         my $quantifiers = { map { $_ => 1 } qw(* + ?), "\x{7b}" };    # quantifiers
                         my $after = substr $row->[$VALUE], ( pos $row->[$VALUE] ) + ( length $inner ) + 2, 1;
                         if (
                             ( index $inner =~ s/[(][^()]*[)]//gr, q{|} ) != -1        # contains alternation
+                            or $inner =~ /\A [?]{2} [{] .* [}] \z/                    # is interpolation code
                             or exists $quantifiers->{$after}                          # quantifier specified
                           )
                         {
@@ -197,7 +191,7 @@ sub import {
 
     my $caller = caller;
     foreach my $method (@arg) {
-        no strict qw(refs);    ## no critic qw(TestingAndDebugging::ProhibitNoStrict)
+        no strict qw(refs);    ## no critic qw(ProhibitNoStrict)
         *{ $caller . q{::} . $method } = *{ __PACKAGE__ . q{::} . $method }{CODE};
     }
 

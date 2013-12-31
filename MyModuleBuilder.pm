@@ -1,4 +1,4 @@
-package MyModuleBuilder v0.0.0;
+package MyModuleBuilder v0.1.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;

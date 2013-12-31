@@ -16,7 +16,7 @@
    "prereqs" : {
       "configure" : {
          "requires" : {
-            "Module::Build" : "0"
+            "Module::Build" : "0.3800"
          }
       },
       "runtime" : {
@@ -28,7 +28,7 @@
    "provides" : {
       "Slack" : {
          "file" : "lib/Slack.pm",
-         "version" : "v0.9.0"
+         "version" : "v0.10.0"
       },
       "Slack::Action" : {
          "file" : "lib/Slack/Action.pm",
@@ -36,27 +36,27 @@
       },
       "Slack::App" : {
          "file" : "lib/Slack/App.pm",
-         "version" : "v0.6.1"
+         "version" : "v0.6.2"
       },
       "Slack::Context" : {
          "file" : "lib/Slack/Context.pm",
-         "version" : "v0.2.0"
+         "version" : "v0.3.0"
       },
       "Slack::Controller" : {
          "file" : "lib/Slack/Controller.pm",
-         "version" : "v0.8.0"
+         "version" : "v0.9.0"
       },
       "Slack::Request" : {
          "file" : "lib/Slack/Request.pm",
-         "version" : "v0.3.2"
+         "version" : "v0.3.3"
       },
       "Slack::Response" : {
          "file" : "lib/Slack/Response.pm",
-         "version" : "v0.2.1"
+         "version" : "v0.2.2"
       },
       "Slack::Util" : {
          "file" : "lib/Slack/Util.pm",
-         "version" : "v0.2.3"
+         "version" : "v0.2.4"
       }
    },
    "release_status" : "stable",
@@ -65,5 +65,5 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "v0.9.0"
+   "version" : "v0.10.0"
 }

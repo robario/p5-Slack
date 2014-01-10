@@ -1,4 +1,126 @@
 Revision history for perl distribution Slack
 
+v0.10.0 2013-12-31
+ [Improvements]
+ - Add the warning test and some author's test
+ - Add the meta files #24
+ - Avoid using a source filter #23
+ - Delete dependencies of Template-Toolkit, Module-CPANfile #25
+
+v0.9.0 2013-09-23
+ [Changes]
+ - Distinguish empty clause from omitted clause #21
+ - Revert `Catch the exception thrown by action` #22
+   - How about spec that the exception thrown by actions will re-thrown after processing `view`
+ [Improvements]
+ - Simplify the display of the regular expression in a debugging output
+
+v0.8.0 2013-09-03
+ [New]
+ - Add support for pre(`^`) and post(`$`) processing for each action code #16
+ [Changes]
+ - Redefine the spec of actions
+   - Add the feature for the skip of action #18
+   - Make `prep` and `view` matches any request method #15
+ - Simplify processing of multiple extensions
+ - Make `req->env->{PATH_INFO}` immutable, then add req->env->{'/'} and req->env->{'.'}
+ - Not 404 when req->env->{PATH_INFO}, req->env->{'/'} or req->env->{'.'} matches at least #19
+ - Catch the exception thrown by action
+ [Fixes]
+ - Fix a source filter fails by too many literal #13 #14
+ [Improvements]
+ - Simplify the debugging output
+
+v0.7.0 2013-07-31
+ [Changes]
+ - Discard `{ extension => ... }` as announced #10
+ - Discard `app->config` as announced #9
+ - Rename an automatic parameter accessor #12
+ [Improvements]
+ - Delete the patch for Time::Piece
+
+v0.6.2 2013-07-30
+ [Fixes]
+ - Fix a source filter cause fatal error #13
+
+v0.6.1 2013-07-05
+ [Fixes]
+ - Fix `req->param` does not works well #11
+
+v0.6.0 2013-07-04
+ [New]
+ - Add `prep` action for a preprocessing
+ - Add support for `501 Not Implemented` when unhandled request method
+ - Add support for multiple extensions
+ - Make it possible to combine a root controller and application
+ - Upgrade pattern matching to clause matching
+ [Changes]
+ - Rename Slack::Matcher to Slack::Action
+ - Change a controller to stateless
+ - Avoid a complicated priority rule
+ - Mark `app->config` as deprecated
+ - Mark `{ extension => ... }` as deprecated, use `{ '.' => ... }` instead
+ - Discard useless `c->view`
+ - Discard `appdir` and `rootdir` #7 #8
+ [Improvements]
+ - Fix not to require needless Time::Piece
+ - Apply cpanfile #6
+ - Add the useful utility for a constructor which is `to_ref` and `new` into Slack::Util
+
+v0.5.0 2013-06-03
+ [New]
+ - Make it possible to define a view
+ - Make it possible to match by extension
+ - Add the context object which is removed at v0.4.0
+ - Add the matcher `Slack::Matcher` which has been set to `c->action` or `c-view` when action matched
+ - Add support for `501 Not Implemented` when there are no action code #5
+ - Add support for HEAD request #4
+ [Changes]
+ - Revive res->query_parameters and res->body_parameters
+ - Change the matching priority to each defined order
+ - Decode PATH_INFO automatically
+ - Make a pattern symmetrical around `\A` and `\z`
+ - Treat `Package CamelCase` as `/camel-case/`
+ - Require perl-v5.14.0 or above
+ - Discard `app->config->{environment}`
+ [Fixes]
+ - Fix a source filter breaks a code #2
+ - Fix an action definition become mix-up
+ - Fix appdir detection with the dir structure of a non-standard
+ - Fix the error which occurs when loading an inline package
+ [Improvements]
+ - Add support of a table output to Smart::Comments
+ - Move `example/` into `t/` #3
+ - Delete the dependence of `Template`
+
+v0.4.0 2013-02-10
+ [Changes]
+ - Enable it to overwrite a prefix
+ - Use `controller->app->config` instead of `app->config`
+ - Rename `Slack::Log` to `Slack::Util`
+ - Delete a context object temporarily
+ - Discard unused `res->param`
+ [Fixes]
+ - Make a stash initialized
+ - Fix detection failure of `appdir`
+ - Fix calls an undefined code
+ [Improvements]
+ - Make `Time::Piece` readable in a debugging output
+ - Add some examples
+
+0.03 2013-01-23
+ [Fixes]
+ - Fix an empty string indistinguishable from undef
+
+0.02 2013-01-22
+ [New]
+ - Add `req->argv`
+ [Changes]
+ - Change the way of a component loading
+ - Add a context object and discard `req->action`
+ [Fixes]
+ - Fix the source filtering failure on a hash key
+ - Fix `Slack::Controller` has not been loaded
+
 0.01 2013-01-07
  - Initial release

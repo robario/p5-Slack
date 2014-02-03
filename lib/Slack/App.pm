@@ -211,6 +211,7 @@ sub _process_action {
             #### try: sprintf '%s->%s [%s] %s =~ %s', $action->controller, $action->name, $name, $c->req->env->{$name}, $action->clause->{$name}
             if ( $c->req->env->{$name} =~ $action->clause->{$name} ) {
                 foreach my $i ( 1 .. $#LAST_MATCH_START ) {
+                    next if ! defined $LAST_MATCH_START[$i] || ! defined $LAST_MATCH_END[$i];
                     push @argv, substr $c->req->env->{$name}, $LAST_MATCH_START[$i], $LAST_MATCH_END[$i] - $LAST_MATCH_START[$i];
                 }
                 %args = ( %args, %LAST_PAREN_MATCH );

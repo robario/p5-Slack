@@ -2,10 +2,11 @@ package Slack::App v0.6.2;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
+use utf8;
+use re 0.18 '/amsx';
 
 use parent qw(Plack::Component);
-use re qw(/amsx);
-use English qw(-no_match_vars);
+use English '-no_match_vars';
 use HTTP::Status qw(
   is_client_error
   status_message
@@ -211,7 +212,10 @@ sub _process_action {
             #### try: sprintf '%s->%s [%s] %s =~ %s', $action->controller, $action->name, $name, $c->req->env->{$name}, $action->clause->{$name}
             if ( $c->req->env->{$name} =~ $action->clause->{$name} ) {
                 foreach my $i ( 1 .. $#LAST_MATCH_START ) {
-                    next if ! defined $LAST_MATCH_START[$i] || ! defined $LAST_MATCH_END[$i];
+                    if ( not defined $LAST_MATCH_START[$i] ) {
+                        ### assert: not defined $LAST_MATCH_END[$i]
+                        next;
+                    }
                     push @argv, substr $c->req->env->{$name}, $LAST_MATCH_START[$i], $LAST_MATCH_END[$i] - $LAST_MATCH_START[$i];
                 }
                 %args = ( %args, %LAST_PAREN_MATCH );

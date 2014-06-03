@@ -2,6 +2,8 @@ package Slack::Request v0.3.3;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
+use utf8;
+use re 0.18 '/amsx';
 
 use parent qw(Plack::Request);
 use Encode qw(find_encoding);

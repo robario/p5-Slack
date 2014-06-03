@@ -6,8 +6,8 @@ package main v0.2.3;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-
-use re qw(/amsx);
+use utf8;
+use re 0.18 '/amsx';
 
 my %format = (
     pc     => "<!DOCTYPE html>\n<title>%s</title>",
@@ -19,10 +19,8 @@ my %format = (
 package MyApp;
 use Carp qw(croak);
 use Encode qw(find_encoding);
-use FindBin qw($Bin);
-use HTTP::Status qw(HTTP_UNSUPPORTED_MEDIA_TYPE);
+use HTTP::Status qw(:constants);
 use JSON::PP;
-use Module::Loaded qw(is_loaded);
 use Slack qw(App Controller);
 
 action default => qr/(?<name>.+)/ => sub {
@@ -58,7 +56,7 @@ view json => { q{.} => 'json' } => sub {
 };
 
 view 'never called' => qr/.*[.]json/ => sub {
-    croak q{This must not be called because the priority is lower than "q{.}=>'json'".};
+    croak(q{This must not be called because the priority is lower than "q{.}=>'json'".});
 };
 
 view plain => { q{.} => 'txt', q{/} => 'foo' } => sub {
@@ -73,6 +71,7 @@ view unknown => { q{.} => qr/.+/ } => sub {
 view default => html('pc');
 
 package MyApp::Baz;
+use JSON::PP;
 use Slack qw(Controller);
 
 view 'json override' => { q{.} => 'json' } => sub {
@@ -81,12 +80,9 @@ view 'json override' => { q{.} => 'json' } => sub {
 };
 
 package main;
-use autodie;
 use Encode qw(encode);
-use FindBin qw($Bin);
 use HTTP::Request::Common qw(GET);
-use HTTP::Status qw(HTTP_UNSUPPORTED_MEDIA_TYPE);
-use Module::Loaded qw(is_loaded);
+use HTTP::Status qw(:constants);
 use Plack::Test qw(test_psgi);
 use Test::More;
 use Test::Warnings;

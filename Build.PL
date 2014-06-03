@@ -6,6 +6,8 @@ package main v0.3.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
+use utf8;
+use re 0.18 '/amsx';
 
 use MyModuleBuilder;
 

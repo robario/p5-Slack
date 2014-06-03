@@ -2,8 +2,8 @@ package Slack::Util v0.2.4;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-
-use re qw(/amsx);
+use utf8;
+use re 0.18 '/amsx';
 
 BEGIN {
     # enable Smart::Comments for ownself

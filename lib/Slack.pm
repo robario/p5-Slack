@@ -2,6 +2,8 @@ package Slack v0.10.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
+use utf8;
+use re 0.18 '/amsx';
 
 use Module::Load qw(load);
 use Slack::Util;

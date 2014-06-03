@@ -6,22 +6,36 @@ package main v0.1.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
+use utf8;
+use re 0.18 '/amsx';
 
+use CPAN::Meta::Requirements;
 use Test::More;
 
 BEGIN {
-    eval { require Test::Strict; Test::Strict->import; 1; }
-      or $ENV{RELEASE_TESTING}
-      ? BAIL_OUT('Failed to load required release-testing module')
-      : plan( skip_all => 'module not available for testing' );
-}
+    $ENV{RELEASE_TESTING} or plan( skip_all => 'Test skipped unless environment variable RELEASE_TESTING is set' );
+    eval { require Test::Strict; } or BAIL_OUT('Failed to load required release-testing module');
+    my $requirements = CPAN::Meta::Requirements->from_string_hash(
+        {
+            'Test::Strict' => '>= 0.22, <= 0.23',
+        }
+    );
+    foreach my $module ( $requirements->required_modules ) {
+        if ( not $requirements->accepts_module( $module => $module->VERSION ) ) {
+            diag( "$module version mismatch, found " . $module->VERSION );
+        }
+    }
 
-BEGIN {
-    my $modules_enabling_strict = \&Test::Strict::modules_enabling_strict;
-    no warnings qw(redefine);    ## no critic qw(ProhibitNoWarnings)
-    *Test::Strict::modules_enabling_strict = sub {
-        return ( &{$modules_enabling_strict}, 'v5.14.0' );
-    };
+    package Test::Strict {    ## no critic qw(ProhibitMultiplePackages ProhibitNoWarnings)
+        no warnings qw(redefine);
+
+        my $orig = \&modules_enabling_strict;
+        *modules_enabling_strict = sub {
+            return ( &{$orig}, 'v5.14.0' );
+        };
+    }
+
+    Test::Strict->import;
 }
 
 $Test::Strict::TEST_WARNINGS = 1;

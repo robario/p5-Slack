@@ -2,8 +2,10 @@ package Slack::Controller v0.9.0;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
+use utf8;
+use re 0.18 '/amsx';
 
-use re qw(/amsx);
+use DB;
 use Slack::Action;
 use Slack::Util;
 

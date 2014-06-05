@@ -4,7 +4,7 @@
       "robario <webmaster@robario.com>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.4203",
+   "generated_by" : "Module::Build version 0.4205",
    "license" : [
       "perl_5"
    ],
@@ -28,35 +28,35 @@
    "provides" : {
       "Slack" : {
          "file" : "lib/Slack.pm",
-         "version" : "v0.10.0"
+         "version" : "v0.10.1"
       },
       "Slack::Action" : {
          "file" : "lib/Slack/Action.pm",
-         "version" : "v0.1.0"
+         "version" : "v0.1.1"
       },
       "Slack::App" : {
          "file" : "lib/Slack/App.pm",
-         "version" : "v0.6.2"
+         "version" : "v0.6.3"
       },
       "Slack::Context" : {
          "file" : "lib/Slack/Context.pm",
-         "version" : "v0.3.0"
+         "version" : "v0.3.1"
       },
       "Slack::Controller" : {
          "file" : "lib/Slack/Controller.pm",
-         "version" : "v0.9.0"
+         "version" : "v0.9.1"
       },
       "Slack::Request" : {
          "file" : "lib/Slack/Request.pm",
-         "version" : "v0.3.3"
+         "version" : "v0.3.4"
       },
       "Slack::Response" : {
          "file" : "lib/Slack/Response.pm",
-         "version" : "v0.2.2"
+         "version" : "v0.2.3"
       },
       "Slack::Util" : {
          "file" : "lib/Slack/Util.pm",
-         "version" : "v0.2.4"
+         "version" : "v0.2.5"
       }
    },
    "release_status" : "stable",
@@ -65,5 +65,5 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "v0.10.0"
+   "version" : "v0.10.1"
 }

@@ -2,12 +2,13 @@
 eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
   if 0;
 
-package main v0.2.2;
+package main v0.2.3;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
+use utf8;
+use re 0.18 '/amsx';
 
-use re qw(/amsx);
 use Module::Loaded qw(mark_as_loaded);
 
 BEGIN {
@@ -80,7 +81,6 @@ my $app = MyApp::Web->new;
 #
 
 package main;
-use FindBin qw($Bin);
 use HTTP::Request::Common qw(GET POST DELETE);
 use HTTP::Status qw(:constants);
 use Plack::Test qw(test_psgi);

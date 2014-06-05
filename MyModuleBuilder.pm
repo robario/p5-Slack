@@ -1,10 +1,17 @@
-package MyModuleBuilder v0.1.0;
+package MyModuleBuilder v0.1.1;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
+use utf8;
+use re 0.18 '/amsx';
 
 use autodie qw(open);
 use parent qw(Module::Build);
+
+# for dependencies
+BEGIN {
+    use Module::Build 0.3800;
+}
 
 ## no critic qw(Capitalization)
 
@@ -26,11 +33,11 @@ sub ACTION_manifest_skip {
 \b%s-v?[\d\.\_]+
 
 # Avoid local modules
-^cpanfile.snapshot$
+^cpanfile\.snapshot$
 ^local\b
 
 # Avoid Test::Perl::Critic files.
-^perltidy.LOG$
+^perltidy\.LOG$
 EOT
     open my $fh, '>>', 'MANIFEST.SKIP';
     $fh->print($addition);

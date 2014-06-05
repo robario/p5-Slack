@@ -10,7 +10,6 @@
 /MANIFEST.SKIP.bak
 /MYMETA.json
 /MYMETA.yml
-/PPM-Slack-v[0-9]*.tar.gz
+/PPM-Slack-v[0-9]*
 /Slack-v[0-9]*
-/Slack-v[0-9]*.tar.gz
 /Slack.ppd

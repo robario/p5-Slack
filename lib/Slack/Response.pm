@@ -1,7 +1,9 @@
-package Slack::Response v0.2.2;
+package Slack::Response v0.2.3;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
+use utf8;
+use re 0.18 '/amsx';
 
 use parent qw(Plack::Response);
 use Plack::Util::Accessor qw(stash);

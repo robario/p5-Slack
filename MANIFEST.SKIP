@@ -76,8 +76,8 @@
 \bSlack-v?[\d\.\_]+
 
 # Avoid local modules
-^cpanfile.snapshot$
+^cpanfile\.snapshot$
 ^local\b
 
 # Avoid Test::Perl::Critic files.
-^perltidy.LOG$
+^perltidy\.LOG$

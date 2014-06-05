@@ -2,12 +2,12 @@
 eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
   if 0;
 
-package main v0.2.2;
+package main v0.2.3;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
-
-use re qw(/amsx);
+use utf8;
+use re 0.18 '/amsx';
 
 ## no critic qw(ProhibitMultiplePackages)
 
@@ -52,7 +52,6 @@ action 'POST only' => {
 action 'bad request' => { q{/} => 'bad request', HTTP_COOKIE => 'bar' } => sub { };
 
 package main;
-use FindBin qw($Bin);
 use HTTP::Request::Common qw(GET POST);
 use HTTP::Status qw(:constants);
 use Plack::Test qw(test_psgi);

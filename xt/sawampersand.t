@@ -2,20 +2,32 @@
 eval 'exec /usr/bin/perl -S $0 ${1+"$@"}'
   if 0;
 
-package main v0.1.0;
+package main v0.1.1;
 use v5.14.0;
 use warnings;
 use encoding::warnings;
+use utf8;
+use re 0.18 '/amsx';
 
-use re qw(/amsx);
+use CPAN::Meta::Requirements;
 use File::Find qw(find);
 use Test::More;
 
 BEGIN {
-    eval { require Devel::SawAmpersand; Devel::SawAmpersand->import(qw(sawampersand)); 1; }
-      or $ENV{RELEASE_TESTING}
-      ? BAIL_OUT('Failed to load required release-testing module')
-      : plan( skip_all => 'module not available for testing' );
+    $ENV{RELEASE_TESTING} or plan( skip_all => 'Test skipped unless environment variable RELEASE_TESTING is set' );
+    eval { require Devel::SawAmpersand; } or BAIL_OUT('Failed to load required release-testing module');
+    my $requirements = CPAN::Meta::Requirements->from_string_hash(
+        {
+            'Devel::SawAmpersand' => '== 0.33',
+        }
+    );
+    foreach my $module ( $requirements->required_modules ) {
+        if ( not $requirements->accepts_module( $module => $module->VERSION ) ) {
+            diag( "$module version mismatch, found " . $module->VERSION );
+        }
+    }
+
+    Devel::SawAmpersand->import(qw(sawampersand));
 }
 
 find(
@@ -29,5 +41,7 @@ find(
     },
     './lib'
 );
+
 ok( !sawampersand, 'not sawampersand' );
+
 done_testing;

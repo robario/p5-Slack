@@ -1,5 +1,11 @@
 Revision history for perl distribution Slack
 
+v0.10.1 2014-06-05
+ [Fixes]
+ - Avoid the warning by the ignored capture group in matching #26
+ [Improvements]
+ - Add `Changes`
+
 v0.10.0 2013-12-31
  [Improvements]
  - Add the warning test and some author's test

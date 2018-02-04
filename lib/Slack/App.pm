@@ -1,7 +1,6 @@
 package Slack::App v0.6.3;
 use v5.14.0;
 use warnings;
-use encoding::warnings;
 use utf8;
 use re 0.18 '/amsx';
 
@@ -71,7 +70,7 @@ sub prepare_app {
 
         # collect actions
         foreach my $action ( $package->actions ) {
-            push $self->{actions}->{ $action->type }, $action;
+            push @{ $self->{actions}->{ $action->type } }, $action;
         }
     }
 
@@ -89,7 +88,7 @@ sub prepare_app {
         my @table = ( [qw(Controller Name ClauseName ClauseValue)] );
         foreach my $action (@_) {
             my @row;
-            foreach my $name ( sort by_clause_priority keys $action->clause ) {
+            foreach my $name ( sort by_clause_priority keys %{ $action->clause } ) {
                 push @row, [ q{}, q{}, $name, $action->clause->{$name} ];
             }
             if ( not @row ) {
@@ -120,7 +119,7 @@ sub call {
     state $implement = {
         map { $_ => 1 }
         map { ( $_, $_ eq 'GET' ? ('HEAD') : () ) }
-        map { keys $_->code } @{ $self->{actions}->{action} }
+        map { keys %{ $_->code } } @{ $self->{actions}->{action} }
     };
 
     # urn:ietf:rfc:2616#5.1.1 The methods GET and HEAD MUST be supported by all general-purpose servers
@@ -164,7 +163,7 @@ sub call {
         # The method specified in the Request-Line is not allowed for the resource identified by the Request-URI
         # The response MUST include an Allow header containing a list of valid methods for the requested resource
         if ( $c->res->status == HTTP_METHOD_NOT_ALLOWED ) {
-            $c->res->header( Allow => join ', ', grep { /\A \p{PosixUpper}+ \z/ } keys $action->code );
+            $c->res->header( Allow => join ', ', grep { /\A \p{PosixUpper}+ \z/ } keys %{ $action->code } );
         }
     }
 
@@ -207,7 +206,7 @@ sub _process_action {
     my ( $c, $action ) = @_;
     my %args;
     my @argv;
-    foreach my $name ( sort by_clause_priority keys $action->clause ) {
+    foreach my $name ( sort by_clause_priority keys %{ $action->clause } ) {
         if ( defined $c->req->env->{$name} ) {
             #### try: sprintf '%s->%s [%s] %s =~ %s', $action->controller, $action->name, $name, $c->req->env->{$name}, $action->clause->{$name}
             if ( $c->req->env->{$name} =~ $action->clause->{$name} ) {

@@ -1,4 +1,3 @@
-requires 'encoding::warnings';
 requires 'parent';
 requires 'perl' => 'v5.14.0';
 requires 're'   => '0.18';

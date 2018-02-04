@@ -1,7 +1,6 @@
 package Slack::Controller v0.9.1;
 use v5.14.0;
 use warnings;
-use encoding::warnings;
 use utf8;
 use re 0.18 '/amsx';
 
@@ -79,7 +78,7 @@ sub actions {
         }
 
         # ensure regexp values of all of the clause
-        foreach my $key ( keys $clause ) {
+        foreach my $key ( keys %{$clause} ) {
             if ( not defined $clause->{$key} ) {
                 delete $clause->{$key};
                 next;
@@ -100,7 +99,7 @@ sub actions {
         ### assert: not exists $code->{HEAD}
         ### assert: $type ne 'action' or not exists $code->{q{*}}
         if ( not defined $clause->{REQUEST_METHOD} and not exists $code->{q{*}} ) {
-            $clause->{REQUEST_METHOD} = join q{|}, keys $code;
+            $clause->{REQUEST_METHOD} = join q{|}, keys %{$code};
             if ( exists $code->{GET} ) {
                 $clause->{REQUEST_METHOD} .= '|HEAD';
             }

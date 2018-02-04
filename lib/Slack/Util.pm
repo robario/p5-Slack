@@ -1,7 +1,6 @@
 package Slack::Util v0.2.5;
 use v5.14.0;
 use warnings;
-use encoding::warnings;
 use utf8;
 use re 0.18 '/amsx';
 
@@ -141,7 +140,7 @@ BEGIN {
         };
 
         # decode Percent-Encoding
-        $dumped =~ s/ [\\]x{ (\p{PosixXDigit}+) } /chr hex sprintf '%04s', $1/egi;
+        $dumped =~ s/ [\\]x[{] (\p{PosixXDigit}+) [}] /chr hex sprintf '%04s', $1/egi;
 
         # backslash readable
         $dumped =~ s/[\\](?=[\\])//g;
